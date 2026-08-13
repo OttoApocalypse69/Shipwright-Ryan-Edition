@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "runtimes": [
+    {
+      "runtimeId": "shipwright",
+      "kind": "NATIVE_PORT",
+      "implementationStatus": "CURRENT_COUPLED",
+      "distribution": {
+        "mode": "BUNDLED",
+        "allowAutomaticDownload": false,
+        "releaseAllowed": false,
+        "reviewNote": "Current local packaging is preserved, but public release is blocked until the upstream root license is confirmed."
+      }
+    },
+    {
+      "runtimeId": "two-ship",
+      "kind": "NATIVE_PORT",
+      "implementationStatus": "PLANNED",
+      "distribution": {
+        "mode": "MANUAL_ONLY",
+        "allowAutomaticDownload": false,
+        "releaseAllowed": false,
+        "reviewNote": "Adapter, source workflow, version policy, and license review have not begun."
+      }
+    },
+    {
+      "runtimeId": "n64-runtime",
+      "kind": "EXTERNAL_EMULATOR",
+      "implementationStatus": "INTERFACE_ONLY",
+      "distribution": {
+        "mode": "MANUAL_ONLY",
+        "allowAutomaticDownload": false,
+        "releaseAllowed": false,
+        "reviewNote": "Generic fallback slot; no emulator implementation has been selected."
+      }
+    },
+    {
+      "runtimeId": "cemu",
+      "kind": "EXTERNAL_EMULATOR",
+      "implementationStatus": "PLANNED",
+      "distribution": {
+        "mode": "EXTERNAL",
+        "homepage": "https://cemu.info/",
+        "allowAutomaticDownload": false,
+        "releaseAllowed": false,
+        "reviewNote": "BOTW adapter architecture only; FTEP does not download the runtime or game data."
+      }
+    },
+    {
+      "runtimeId": "switch-runtime",
+      "kind": "EXTERNAL_RUNTIME",
+      "implementationStatus": "INTERFACE_ONLY",
+      "distribution": {
+        "mode": "MANUAL_ONLY",
+        "allowAutomaticDownload": false,
+        "releaseAllowed": false,
+        "reviewNote": "Generic external Switch runtime slot with no selected provider or bundled implementation."
+      }
+    }
+  ]
+}

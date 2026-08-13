@@ -1,0 +1,13 @@
+{
+  "name": "@ftep/game-catalog",
+  "private": true,
+  "version": "0.1.0",
+  "files": [
+    "catalog.v1.json",
+    "schema.v1.json"
+  ],
+  "exports": {
+    "./catalog.v1.json": "./catalog.v1.json",
+    "./schema.v1.json": "./schema.v1.json"
+  }
+}

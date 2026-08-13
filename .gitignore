@@ -46,6 +46,22 @@ tools/*dSYM/
 graphs/
 .netcoredbg_hist
 
+# FTEP launcher artifacts
+apps/launcher/node_modules/
+apps/launcher/dist/
+apps/launcher/*.tsbuildinfo
+apps/launcher/src-tauri/target/
+apps/launcher/src-tauri/gen/
+/target/
+apps/launcher/resources/runtime/*.exe
+apps/launcher/resources/runtime/*.dll
+apps/launcher/resources/runtime/*.pdb
+apps/launcher/resources/runtime/*.o2r
+apps/launcher/resources/extractor/*.exe
+apps/launcher/resources/extractor/*.dll
+apps/launcher/resources/extractor/*.pdb
+build-ftep-*/
+
 # Assets
 *.png
 *.jpg
@@ -414,6 +430,12 @@ ReleaseObj/*
 tags
 *.otr
 *.o2r
+
+# FTEP shared packages are source, not generated NuGet packages.
+!packages/
+!packages/**
+!apps/launcher/src-tauri/icons/
+!apps/launcher/src-tauri/icons/**
 *.sav
 shipofharkinian.ini
 shipofharkinian.json

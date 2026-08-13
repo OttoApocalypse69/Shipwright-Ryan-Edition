@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">FTEP launcher</title>
+  <desc id="description">An original amber industrial FT monogram on charcoal.</desc>
+  <defs>
+    <linearGradient id="amber" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffc857" />
+      <stop offset="1" stop-color="#e68b0b" />
+    </linearGradient>
+  </defs>
+  <path fill="#111416" d="M76 24h288l124 124v288l-52 52H148L24 364V76z" />
+  <path fill="url(#amber)" d="M76 24h288l124 124v288l-52 52H148L24 364V76zM98 88v249l77 87h234l15-15V175l-87-87z" fill-rule="evenodd" />
+  <path fill="#ffc857" d="M96 88h241l87 87v50L288 88z" opacity=".28" />
+  <path fill="#f4ad24" d="M136 154h184v58H202v55h103v56H202v111h-66zm196 58h-72v-58h211v58h-73v222h-66z" />
+  <path fill="#111416" d="M381 104h18v56h56v18h-74z" />
+</svg>

@@ -1,0 +1,144 @@
+{
+  "$schema": "./schema.v1.json",
+  "schemaVersion": 1,
+  "games": [
+    {
+      "id": "zelda-oot",
+      "franchise": "zelda",
+      "title": "The Legend of Zelda: Ocarina of Time",
+      "variants": [
+        {
+          "id": "n64",
+          "originalPlatform": "NINTENDO64",
+          "runtimeCandidates": [
+            {
+              "runtimeId": "shipwright",
+              "priority": 10,
+              "compatibility": "SUPPORTED"
+            },
+            {
+              "runtimeId": "n64-runtime",
+              "priority": 100,
+              "compatibility": "INVESTIGATING"
+            }
+          ],
+          "preferredRuntime": "shipwright",
+          "sourceRequirements": [
+            {
+              "id": "compatible-game-image",
+              "kind": "GAME_IMAGE",
+              "description": "A compatible, legally acquired Ocarina of Time game image supplied by the user.",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "preferredVariant": "n64",
+      "achievementNamespace": "ftep.game.zelda-oot"
+    },
+    {
+      "id": "zelda-mm",
+      "franchise": "zelda",
+      "title": "The Legend of Zelda: Majora's Mask",
+      "variants": [
+        {
+          "id": "n64",
+          "originalPlatform": "NINTENDO64",
+          "runtimeCandidates": [
+            {
+              "runtimeId": "two-ship",
+              "priority": 10,
+              "compatibility": "INVESTIGATING"
+            },
+            {
+              "runtimeId": "n64-runtime",
+              "priority": 100,
+              "compatibility": "INVESTIGATING"
+            }
+          ],
+          "preferredRuntime": "two-ship",
+          "sourceRequirements": [
+            {
+              "id": "compatible-game-image",
+              "kind": "GAME_IMAGE",
+              "description": "A compatible, legally acquired Majora's Mask game image supplied by the user.",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "preferredVariant": "n64",
+      "achievementNamespace": "ftep.game.zelda-mm"
+    },
+    {
+      "id": "zelda-botw",
+      "franchise": "zelda",
+      "title": "The Legend of Zelda: Breath of the Wild",
+      "variants": [
+        {
+          "id": "wiiu",
+          "originalPlatform": "WII_U",
+          "runtimeCandidates": [
+            {
+              "runtimeId": "cemu",
+              "priority": 10,
+              "compatibility": "INVESTIGATING"
+            }
+          ],
+          "preferredRuntime": "cemu",
+          "sourceRequirements": [
+            {
+              "id": "installed-game-directory",
+              "kind": "DIRECTORY",
+              "description": "A compatible Wii U installation dumped and supplied by the user.",
+              "required": true
+            },
+            {
+              "id": "runtime-required-material",
+              "kind": "RUNTIME_MATERIAL",
+              "description": "Any legitimate console-derived material required by the selected external runtime.",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "preferredVariant": "wiiu",
+      "achievementNamespace": "ftep.game.zelda-botw"
+    },
+    {
+      "id": "zelda-totk",
+      "franchise": "zelda",
+      "title": "The Legend of Zelda: Tears of the Kingdom",
+      "variants": [
+        {
+          "id": "switch",
+          "originalPlatform": "SWITCH",
+          "runtimeCandidates": [
+            {
+              "runtimeId": "switch-runtime",
+              "priority": 10,
+              "compatibility": "INVESTIGATING"
+            }
+          ],
+          "preferredRuntime": "switch-runtime",
+          "sourceRequirements": [
+            {
+              "id": "compatible-game-data",
+              "kind": "GAME_IMAGE",
+              "description": "Compatible Tears of the Kingdom game data supplied by the user.",
+              "required": true
+            },
+            {
+              "id": "runtime-required-material",
+              "kind": "RUNTIME_MATERIAL",
+              "description": "Any legitimate console-derived material required by the selected external runtime.",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "preferredVariant": "switch",
+      "achievementNamespace": "ftep.game.zelda-totk"
+    }
+  ]
+}

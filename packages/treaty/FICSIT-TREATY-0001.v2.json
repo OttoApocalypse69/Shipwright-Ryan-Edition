@@ -1,0 +1,139 @@
+{
+  "treatyId": "FICSIT-TREATY-0001",
+  "version": "2.0.0",
+  "title": "THE GREAT ZELDA–SATISFACTORY ACCORDS",
+  "kind": "interpersonal platform agreement",
+  "provider": "Teri",
+  "beneficiary": "Ryan",
+  "disclaimer": "This is a humorous platform agreement and interpersonal treaty. It does not claim to be a legally binding real-world contract.",
+  "summary": {
+    "provider": [
+      "Makes supported Zelda access work."
+    ],
+    "beneficiary": [
+      "Plays qualifying Satisfactory sessions.",
+      "Does not deliberately destroy the factory.",
+      "Does not rage quit solely over normal game mishaps.",
+      "Does not deliberately waste everyone's time."
+    ]
+  },
+  "articles": [
+    {
+      "number": 1,
+      "title": "TECHNICAL PROVISION",
+      "paragraphs": [
+        "Teri agrees to provide reasonable technical assistance necessary to establish and maintain FTEP-supported Zelda access.",
+        "This does not require Teri to provide copyrighted game data."
+      ]
+    },
+    {
+      "number": 2,
+      "title": "INDUSTRIAL COOPERATION",
+      "paragraphs": [
+        "Ryan agrees to participate in mutually scheduled Satisfactory multiplayer sessions with Teri in good faith.",
+        "A qualifying session should normally include active participation rather than merely joining the server and going AFK. The default qualifying threshold is 30 minutes of active participation and is configurable."
+      ]
+    },
+    {
+      "number": 3,
+      "title": "WORLD PRESERVATION",
+      "paragraphs": [
+        "Ryan shall not intentionally damage, destroy, dismantle, corrupt, or materially degrade the shared Satisfactory world.",
+        "Prohibited intentional actions include dismantling productive infrastructure without agreement; deliberately severing important logistics; intentionally collapsing the electrical grid; intentionally starving critical production chains; deliberately wasting stored high-value materials; deliberately destroying vehicles or equipment; deliberately causing unrecoverable inventory loss; deleting or corrupting save data; deliberately obstructing construction projects; and intentionally making the factory materially worse merely for amusement.",
+        "Accidental mistakes are not treaty violations. Experimental engineering is permitted when undertaken in good faith."
+      ]
+    },
+    {
+      "number": 4,
+      "title": "TOKEN CONSERVATION AND REMEDIATION",
+      "paragraphs": [
+        "The parties acknowledge that repairing unnecessary damage may require real human time and may result in additional AI, tool, or token usage with real-world cost.",
+        "Therefore Ryan shall not intentionally create avoidable technical or gameplay damage merely to force Teri to repair it.",
+        "This article does not create monetary debt or financial liability. The remedy is restoration of the affected world state and reasonable assistance fixing what was damaged."
+      ]
+    },
+    {
+      "number": 5,
+      "title": "NO RAGE-QUIT PROTOCOL",
+      "paragraphs": [
+        "Ryan shall not intentionally terminate a mutually agreed qualifying session solely because a production line failed; a creature killed him; Teri made fun of his conveyor layout; a train signal behaved as train signals do; the factory briefly lost power; or someone said ‘just one more production line.’",
+        "When reasonably possible, either party wishing to end a session should communicate that intention before leaving.",
+        "Exceptions include internet failure, power failure, crashes, illness, school or work obligations, family matters, emergencies, and genuine real-life constraints. Real life overrides the treaty."
+      ]
+    },
+    {
+      "number": 6,
+      "title": "GOOD-FAITH PARTICIPATION",
+      "paragraphs": [
+        "Participation intended solely to satisfy the timer while avoiding actual cooperation does not count.",
+        "Examples include joining and going AFK, walking into a wall for 30 minutes, leaving the game running unattended, or actively sabotaging while technically remaining connected.",
+        "A session should involve reasonable cooperative gameplay."
+      ]
+    },
+    {
+      "number": 7,
+      "title": "INDUSTRIAL CHANGE CONTROL",
+      "paragraphs": [
+        "Major destructive changes to established infrastructure should be discussed before execution. Examples include a factory-wide redesign, power architecture replacement, rail-network demolition, mass conveyor replacement, destruction of central storage, or relocation of strategically important facilities.",
+        "Normal construction does not require approval. Do not turn gameplay into bureaucracy. The purpose is exclusively to prevent catastrophic Ryan Events."
+      ]
+    },
+    {
+      "number": 8,
+      "title": "SAVE INTEGRITY",
+      "paragraphs": [
+        "Neither party shall intentionally delete the canonical shared save; overwrite it with an older save for malicious reasons; corrupt the save; modify backups to conceal sabotage; or interfere with backup automation.",
+        "Automatic backups should be enabled where practical."
+      ]
+    },
+    {
+      "number": 9,
+      "title": "REMEDIATION",
+      "paragraphs": [
+        "If either party accidentally causes substantial damage, they should report what happened; not conceal it; help assess the damage; restore the affected infrastructure where reasonably practical; and continue playing.",
+        "Accidents are not breaches when handled in good faith."
+      ]
+    },
+    {
+      "number": 10,
+      "title": "SESSION SCHEDULING",
+      "paragraphs": [
+        "Neither party is expected to be available continuously. Sessions are mutually scheduled.",
+        "The treaty does not override sleep, work, school, health, emergencies, or other real-life obligations."
+      ]
+    },
+    {
+      "number": 11,
+      "title": "HYDRATION PROTOCOL",
+      "paragraphs": [
+        "Industrial personnel are strongly encouraged to maintain hydration during extended gaming sessions.",
+        "For sessions exceeding approximately 90 minutes, the launcher may display a FICSIT Occupational Hydration Notice stating that water remains compatible with continued industrial operations.",
+        "Hydration achievements may exist. Failure to acknowledge or drink water must not suspend Zelda entitlement. FTEP is overengineering a joke, not establishing a dystopian hydration police force."
+      ]
+    },
+    {
+      "number": 12,
+      "title": "MUTUAL ANTI-IDIOT CLAUSE",
+      "paragraphs": [
+        "Neither party shall deliberately exploit technical ambiguities in this treaty in a manner obviously contrary to its purpose.",
+        "For example: ‘I joined Satisfactory for exactly thirty minutes but spent all thirty minutes jumping into the void.’ No. The standard is reasonable good faith."
+      ]
+    },
+    {
+      "number": 13,
+      "title": "ENTITLEMENT REMEDIES",
+      "paragraphs": [
+        "Failure to satisfy Article II may result in COMPLIANT, then WARNING, then MATERIAL_BREACH, then ZELDA_ENTITLEMENT_SUSPENDED.",
+        "Suspension affects only the FTEP-controlled launcher entitlement. It shall never damage files, destroy saves, uninstall applications, remotely terminate unrelated processes, execute arbitrary commands, or interfere with the operating system."
+      ]
+    },
+    {
+      "number": 14,
+      "title": "RESTORATION OF PRIVILEGES",
+      "paragraphs": [
+        "When compliance is restored, MATERIAL_BREACH transitions through REMEDIATION_COMPLETED to COMPLIANT and ZELDA PRIVILEGES RESTORED.",
+        "The launcher displays a Treaty Relations Normalized notice, confirms that Article II obligations are satisfied and Zelda runtime authorization is restored, thanks Ryan for renewed industrial cooperation, and offers Play Zelda."
+      ]
+    }
+  ]
+}

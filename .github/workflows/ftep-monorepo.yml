@@ -1,0 +1,73 @@
+name: FTEP monorepo
+
+on:
+  pull_request:
+    paths:
+      - "apps/**"
+      - "crates/**"
+      - "integrations/**"
+      - "packages/**"
+      - "runtimes/**"
+      - "tooling/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/ftep-monorepo.yml"
+  push:
+    branches: [develop]
+    paths:
+      - "apps/**"
+      - "crates/**"
+      - "integrations/**"
+      - "packages/**"
+      - "runtimes/**"
+      - "tooling/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/ftep-monorepo.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  workspace:
+    name: Rust and TypeScript workspace
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy,rustfmt
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test workspace
+        run: pnpm test
+
+      - name: Lint workspace
+        run: pnpm lint
+
+      - name: Build workspace
+        run: pnpm build

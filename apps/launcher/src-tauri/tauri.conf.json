@@ -1,0 +1,46 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "FTEP",
+  "version": "0.1.0",
+  "identifier": "com.ftep.launcher",
+  "build": {
+    "beforeDevCommand": "npm run dev:web",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "FTEP Launcher",
+        "width": 1180,
+        "height": 760,
+        "minWidth": 920,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "resources": {
+      "../resources/runtime/": "runtime/",
+      "../resources/extractor/": "extractor/",
+      "../../../soh/assets/yml/": "extractor/yml/"
+    },
+    "publisher": "FTEP Compliance Directorate",
+    "shortDescription": "Industrial diplomacy through excessive software engineering.",
+    "longDescription": "A consumer-friendly launcher for the FICSIT Treaty Enforcement Platform.",
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine"
+      }
+    }
+  }
+}

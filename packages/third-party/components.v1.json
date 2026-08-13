@@ -1,0 +1,66 @@
+{
+  "$schema": "./schema.v1.json",
+  "schemaVersion": 1,
+  "components": [
+    {
+      "id": "shipwright",
+      "name": "Ship of Harkinian / Shipwright",
+      "projectUrl": "https://github.com/HarbourMasters/Shipwright",
+      "license": "UNKNOWN",
+      "redistributionMode": "BLOCKED_PENDING_REVIEW",
+      "integrationType": "IN_TREE_UPSTREAM_DERIVED",
+      "version": "14d9d4e8bb50dbcff65e2544305fb253bd9cdb72",
+      "attributionRequired": true,
+      "sourceAvailable": true,
+      "notes": "The repository has no top-level LICENSE file. Confirm applicable upstream terms before a public FTEP release."
+    },
+    {
+      "id": "libultraship",
+      "name": "libultraship",
+      "projectUrl": "https://github.com/kenix3/libultraship",
+      "license": "MIT",
+      "redistributionMode": "BUNDLED_SOURCE_AND_BINARY",
+      "integrationType": "GIT_SUBMODULE",
+      "version": "9a1a2bd9356d3de18f54ef220a413da18d16779b",
+      "attributionRequired": true,
+      "sourceAvailable": true,
+      "notes": "License evidence: libultraship/LICENSE."
+    },
+    {
+      "id": "torch",
+      "name": "HarbourMasters Torch",
+      "projectUrl": "https://github.com/HarbourMasters/Torch",
+      "license": "MIT",
+      "redistributionMode": "BUNDLED_SOURCE_AND_BINARY",
+      "integrationType": "GIT_SUBMODULE",
+      "version": "e92c2103e22281b892e65760b4b11d81d4795c86",
+      "attributionRequired": true,
+      "sourceAvailable": true,
+      "notes": "License evidence: torch/LICENSE."
+    },
+    {
+      "id": "stormlib",
+      "name": "StormLib",
+      "projectUrl": "https://github.com/ladislav-zezula/StormLib",
+      "license": "MIT",
+      "redistributionMode": "BUNDLED_SOURCE_AND_BINARY",
+      "integrationType": "VENDORED_BY_SUBMODULE",
+      "version": "torch-e92c2103e22281b892e65760b4b11d81d4795c86",
+      "attributionRequired": true,
+      "sourceAvailable": true,
+      "notes": "License evidence: torch/lib/StormLib/LICENSE."
+    },
+    {
+      "id": "dr-libs",
+      "name": "dr_libs",
+      "projectUrl": "https://github.com/mackron/dr_libs",
+      "license": "UNKNOWN",
+      "redistributionMode": "BLOCKED_PENDING_REVIEW",
+      "integrationType": "CMAKE_FETCH_CONTENT",
+      "version": "da35f9d6c7374a95353fd1df1d394d44ab66cf01",
+      "attributionRequired": true,
+      "sourceAvailable": true,
+      "notes": "Fetched during the Shipwright build; collect and verify the exact upstream license before release."
+    }
+  ]
+}

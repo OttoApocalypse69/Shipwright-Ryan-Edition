@@ -1,0 +1,11 @@
+[package]
+name = "ftep-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Runtime provider interfaces, registry, events, and deterministic fixtures for FTEP"
+publish = false
+
+[dependencies]
+ftep-core = { path = "../ftep-core" }
+serde.workspace = true

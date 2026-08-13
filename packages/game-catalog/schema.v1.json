@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ftep.invalid/schemas/game-catalog.v1.json",
+  "title": "FTEP game catalog v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "games"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "games": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/game" }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "sourceRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "description", "required"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": {
+          "enum": ["GAME_IMAGE", "RUNTIME_MATERIAL", "DIRECTORY", "OTHER"]
+        },
+        "description": { "type": "string", "minLength": 1 },
+        "required": { "type": "boolean" }
+      }
+    },
+    "runtimeCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtimeId", "priority", "compatibility"],
+      "properties": {
+        "runtimeId": { "$ref": "#/$defs/identifier" },
+        "priority": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "compatibility": {
+          "enum": [
+            "UNSUPPORTED",
+            "INVESTIGATING",
+            "EXPERIMENTAL",
+            "SUPPORTED",
+            "DEGRADED",
+            "BROKEN",
+            "DEPRECATED"
+          ]
+        }
+      }
+    },
+    "variant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "originalPlatform",
+        "runtimeCandidates",
+        "sourceRequirements"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "originalPlatform": {
+          "enum": [
+            "NINTENDO64",
+            "SUPER_NINTENDO",
+            "GAME_CUBE",
+            "WII",
+            "WII_U",
+            "SWITCH",
+            "NINTENDO_DS",
+            "NINTENDO3DS",
+            "OTHER"
+          ]
+        },
+        "runtimeCandidates": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/runtimeCandidate" }
+        },
+        "preferredRuntime": {
+          "oneOf": [{ "$ref": "#/$defs/identifier" }, { "type": "null" }]
+        },
+        "sourceRequirements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sourceRequirement" }
+        }
+      }
+    },
+    "game": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "franchise",
+        "title",
+        "variants",
+        "preferredVariant",
+        "achievementNamespace"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "franchise": { "$ref": "#/$defs/identifier" },
+        "title": { "type": "string", "minLength": 1 },
+        "variants": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/variant" }
+        },
+        "preferredVariant": { "$ref": "#/$defs/identifier" },
+        "achievementNamespace": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"
+        }
+      }
+    }
+  }
+}

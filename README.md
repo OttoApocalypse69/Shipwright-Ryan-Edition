@@ -1,117 +1,88 @@
-![Ship of Harkinian](docs/shiptitle.darkmode.png#gh-dark-mode-only)
-![Ship of Harkinian](docs/shiptitle.lightmode.png#gh-light-mode-only)
+# FTEP
 
-## Website
+## FICSIT Treaty Enforcement Platform
 
-Official Website: https://www.shipofharkinian.com/
+FTEP is a Windows-first game-library and runtime-orchestration platform for an
+unreasonable but carefully engineered purpose: make supported Zelda pathways
+pleasant to set up while administering the Great Zelda-Satisfactory Accords.
 
-## Discord
+FTEP owns the user experience, library, policy, entitlements, achievements,
+configuration, and orchestration. Native ports and emulators are replaceable
+runtime providers. Ship of Harkinian/Shipwright is the first provider; it is not
+the platform architecture.
 
-Official Discord: https://discord.com/invite/shipofharkinian
+## Current state
 
-If you're having any trouble after reading through this `README`, feel free to ask for help in the Support text channels. Please keep in mind that we do not condone piracy.
+The verified Milestone 1.5 vertical slice includes a Tauri/React launcher,
+local OoT validation and asset preparation, native Windows diagnostics, guarded
+Shipwright launch, a non-playable synthetic onboarding path, and an NSIS
+installer. The first monorepo extraction adds provider-neutral game catalog and
+runtime contracts without moving or rewriting upstream Shipwright sources.
 
-# Quick Start
+Not implemented yet: production OAuth/OIDC, PostgreSQL control plane, signed
+device entitlements/offline leases, achievements, overlay, multi-game setup,
+or signed updates. UI placeholders are not production security controls.
 
-The Ship does not include any copyrighted assets.  You are required to provide a supported copy of the game.
+## Repository map
 
-### 1. Verify your ROM dump
-You can verify you have dumped a supported copy of the game by using the compatibility checker at https://ship.equipment/. If you'd prefer to manually validate your ROM dump, you can cross-reference its `sha1` hash with the hashes [here](docs/supportedHashes.json).
-
-### 2. Download The Ship of Harkinian from [Releases](https://github.com/HarbourMasters/Shipwright/releases)
-
-### 3. Launch the Game!
-#### Windows
-* Extract the zip
-* Launch `soh.exe`
-
-#### Linux
-* Place your supported copy of the game in the same folder as the appimage.
-* Execute `soh.appimage`.  You may have to `chmod +x` the appimage via terminal.
-
-#### macOS
-* Run `soh.app`. When prompted, select your supported copy of the game.
-* You should see a notification saying `Processing OTR`, then, once the process is complete, you should get a notification saying `OTR Successfully Generated`, then the game should start.
-
-#### Nintendo Switch
-* Run one of the PC releases to generate an `oot.o2r` and/or `oot-mq.o2r` file. After launching the game on PC, you will be able to find these files in the same directory as `soh.exe` or `soh.appimage`. On macOS, these files can be found in `/Users/<username>/Library/Application Support/com.shipofharkinian.soh/`
-* Copy the files to your sd card
+```text
+apps/launcher/              FTEP desktop launcher
+crates/ftep-core/           stable IDs and provider-neutral game catalog model
+crates/ftep-runtime/        runtime interface, events, registry, synthetic fixtures
+packages/game-catalog/      versioned data-driven catalog and schema
+packages/treaty/            immutable versioned treaty documents
+packages/third-party/       integration license/distribution registry
+runtimes/manifests/         runtime acquisition and release policy
+soh/                        preserved upstream Shipwright application source
+torch/                      pinned upstream extraction-tool submodule
+libultraship/               pinned upstream runtime-framework submodule
 ```
-sdcard
-└── switch
-    └── soh
-        ├── oot-mq.o2r
-        ├── oot.o2r
-        ├── soh.nro
-        └── soh.o2r
+
+See [the migration assessment](docs/MONOREPO_MIGRATION.md) for the audited
+current coupling, exact target tree, risk boundaries, and phased plan.
+
+## Developer commands
+
+Prerequisites for the workspace checks are Node.js, pnpm, and Rust:
+
+```powershell
+pnpm install
+pnpm test
+pnpm lint
+pnpm build
 ```
-* Launch via Atmosphere's `Game+R` launcher method.
 
-### 4. Play!
+Focused Rust commands:
 
-Congratulations, you are now sailing with the Ship of Harkinian! Have fun!
+```powershell
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+```
 
-# Configuration
+`pnpm dev` starts the desktop launcher and therefore needs the Windows native
+toolchain plus prepared Shipwright runtime resources. Use `pnpm dev:web` for
+the launcher UI without the native shell. Detailed native build and packaging
+steps live in [apps/launcher/README.md](apps/launcher/README.md); upstream CMake
+requirements remain in [docs/BUILDING.md](docs/BUILDING.md).
 
-### Default keyboard configuration
-| N64 | A | B | Z | Start | Analog stick | C buttons | D-Pad |
-| - | - | - | - | - | - | - | - |
-| Keyboard | X | C | Z | Space | WASD | Arrow keys | TFGH |
+Turborepo is intentionally not present while the repository has only one
+JavaScript application. pnpm and Cargo provide the current task graph without
+another orchestration layer.
 
-### Other shortcuts
-| Keys | Action |
-| - | - |
-| ESC | Toggle menu |
-| F2 | Toggle capture mouse input |
-| F5 | Save state |
-| F6 | Change state |
-| F7 | Load state |
-| F9 | Toggle Text-to-Speech (Windows and Mac only) |
-| F11 | Fullscreen |
-| Tab | Toggle Alternate assets |
-| Ctrl+R | Reset |
+## Game data and runtime policy
 
-# Project Overview
-Ship of Harkinian (SOH) is built atop a custom library dubbed libultraship (LUS). Back in the N64 days, there was an SDK distributed to developers named libultra; LUS is designed to mimic the functionality of libultra on modern hardware. In addition, we are dependent on the source code provided by the OOT decompilation project.
+FTEP does not include, locate, or download Nintendo ROMs, game images,
+copyrighted game assets, firmware, console keys, title keys, or authentication
+secrets. Users supply their own compatible game data and any legitimately
+required runtime material. FTEP does not implement circumvention logic.
 
-In order for the game to function, you will require a **legally acquired** ROM for Ocarina of Time. Click [here](https://ship.equipment/) to check the compatibility of your specific rom. Any copyrighted assets are extracted from the ROM and reformatted as a .o2r archive file which the code uses.
+Compatibility labels are evidence-based. At this stage only the preserved OoT
+Shipwright pathway is marked `SUPPORTED`; MM, BOTW, and TOTK entries describe
+scoped architectural targets and remain `INVESTIGATING`.
 
-### Graphics Backends
-Currently, there are three rendering APIs supported: DirectX11 (Windows), OpenGL (all platforms), and Metal (MacOS). You can change which API to use in the `Settings` menu of the menubar, which requires a restart.  If you're having an issue with crashing, you can change the API in the `shipofharkinian.json` file by finding the line `gfxbackend:""` and changing the value to `sdl` for OpenGL. DirectX 11 is the default on Windows.
+## Licensing status
 
-# Custom Assets
-
-Custom assets are packed in `.otr` archive files. To use custom assets, place them in the `mods` folder.
-
-If you're interested in creating and/or packing your own custom asset `.otr` files, check out the following tools:
-* [**retro - OTR generator**](https://github.com/HarbourMasters64/retro)
-* [**fast64 - Blender plugin**](https://github.com/HarbourMasters/fast64)
-
-# Development
-### Building
-
-If you want to manually compile SoH, please consult the [building instructions](docs/BUILDING.md).
-
-### Playtesting
-If you want to playtest a continuous integration build, you can find them at the links below. Keep in mind that these are for playtesting only, and you will likely encounter bugs and possibly crashes. 
-
-* [Windows](https://nightly.link/HarbourMasters/Shipwright/workflows/generate-builds/develop/soh-windows.zip)
-* [macOS](https://nightly.link/HarbourMasters/Shipwright/workflows/generate-builds/develop/soh-mac.zip)
-* [Linux](https://nightly.link/HarbourMasters/Shipwright/workflows/generate-builds/develop/soh-linux.zip)
-
-### Further Reading
-More detailed documentation can be found in the 'docs' directory, including the aforementioned [building instructions](docs/BUILDING.md).
-
-* [Credits](docs/CREDITS.md)
-* [Custom Music](docs/CUSTOM_MUSIC.md)
-* [Formatting](docs/FORMATTING.md)
-* [Controller Mapping](docs/GAME_CONTROLLER_DB.md)
-* [Modding](docs/MODDING.md)
-* [Versioning](docs/VERSIONING.md)
-
-<a href="https://github.com/Kenix3/libultraship/">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./docs/poweredbylus.darkmode.png">
-    <img alt="Powered by libultraship" src="./docs/poweredbylus.lightmode.png">
-  </picture>
-</a>
+This Shipwright-derived root currently has no top-level upstream license file.
+Public redistribution is blocked until the applicable Shipwright terms and all
+bundled dependency notices are confirmed. Known and unknown evidence is
+recorded without guessing in `packages/third-party/components.v1.json`.

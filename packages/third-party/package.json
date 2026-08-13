@@ -1,0 +1,13 @@
+{
+  "name": "@ftep/third-party",
+  "private": true,
+  "version": "0.1.0",
+  "files": [
+    "components.v1.json",
+    "schema.v1.json"
+  ],
+  "exports": {
+    "./components.v1.json": "./components.v1.json",
+    "./schema.v1.json": "./schema.v1.json"
+  }
+}

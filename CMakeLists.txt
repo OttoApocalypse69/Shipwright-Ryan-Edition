@@ -258,6 +258,15 @@ add_executable(soh-o2r-packer EXCLUDE_FROM_ALL
 )
 target_link_libraries(soh-o2r-packer PRIVATE torch)
 
+# Torch and its static Windows dependencies use /MT. These small entry points are
+# declared by the parent project after Torch's directory-scoped runtime setting,
+# so explicitly keep their CRT choice compatible with the libraries they link.
+if(MSVC)
+    set_target_properties(soh-torch soh-o2r-packer PROPERTIES
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+    )
+endif()
+
 # Target to generate OTRs. SOH_ROM_PATH takes roms and/or directories of roms; torch names each
 # archive (oot.o2r or oot-mq.o2r) from its hash, so a vanilla and a master quest rom produce both
 # in one run. soh.o2r comes from GenerateSohOtr, chained below.
