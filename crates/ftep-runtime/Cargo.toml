@@ -1,11 +1,11 @@
 [package]
-name = "ftep-runtime"
+name = "sre-runtime"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Runtime provider interfaces, registry, events, and deterministic fixtures for FTEP"
+description = "Runtime provider interfaces, registry, events, and deterministic fixtures for SRE"
 publish = false
 
 [dependencies]
-ftep-core = { path = "../ftep-core" }
+sre-core = { path = "../ftep-core" }
 serde.workspace = true

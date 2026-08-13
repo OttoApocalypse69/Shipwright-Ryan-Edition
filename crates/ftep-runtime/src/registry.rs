@@ -1,5 +1,5 @@
 use crate::{DetectionStatus, RuntimeError, RuntimeProvider};
-use ftep_core::{GameVariant, RuntimeId};
+use sre_core::{GameVariant, RuntimeId};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::sync::Arc;
@@ -134,7 +134,7 @@ impl ProviderRegistry {
 mod tests {
     use super::*;
     use crate::synthetic::SyntheticRuntime;
-    use ftep_core::{CompatibilityState, GameVariantId, OriginalPlatform, RuntimeCandidate};
+    use sre_core::{CompatibilityState, GameVariantId, OriginalPlatform, RuntimeCandidate};
 
     fn variant() -> GameVariant {
         GameVariant {

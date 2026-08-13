@@ -1,0 +1,63 @@
+name: SRE Windows release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version: { description: "Release version", required: true, type: string }
+      channel: { description: "Release channel", required: true, type: choice, options: [stable, beta, nightly], default: stable }
+      publish: { description: "Publish GitHub Release", required: true, type: boolean, default: false }
+  push:
+    tags: ["sre-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows-installer:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
+      RELEASE_CHANNEL: ${{ inputs.channel || 'stable' }}
+      FTEP_RELEASE_SIGNING_PRIVATE_KEY: ${{ secrets.FTEP_RELEASE_SIGNING_PRIVATE_KEY }}
+      FTEP_LEASE_SIGNING_PRIVATE_KEY: ${{ secrets.FTEP_LEASE_SIGNING_PRIVATE_KEY }}
+      FTEP_SIGNING_KEY_ID: ${{ vars.FTEP_SIGNING_KEY_ID }}
+      VITE_FTEP_WEB_URL: ${{ vars.FTEP_WEB_URL }}
+    steps:
+      - uses: actions/checkout@v7
+        with: { submodules: recursive }
+      - uses: ilammy/msvc-dev-cmd@v1
+        with: { arch: x64 }
+      - uses: pnpm/action-setup@v4
+        with: { version: 11.19.0, run_install: false }
+      - uses: actions/setup-node@v6
+        with: { node-version: 24, cache: pnpm }
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: seanmiddleditch/gha-setup-ninja@v6
+      - run: pnpm install --frozen-lockfile
+      - name: Build launcher FTEP trust set
+        run: node tooling/scripts/create-trusted-keyset.mjs apps/launcher/resources/trust/ftep-signing-keys.json
+      - name: Build maintained native resources
+        shell: pwsh
+        run: |
+          cmake -S . -B build-sre-tools -G Ninja -DCMAKE_BUILD_TYPE=Release -DSOH_TOOLS_ONLY=ON
+          cmake --build build-sre-tools --target soh-torch
+          cmake -S . -B build-sre-runtime -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-sre-runtime --target GenerateSohOtr soh
+          ./apps/launcher/scripts/prepare-resources.ps1 -ToolsBuild build-sre-tools -RuntimeBuild build-sre-runtime -RuntimeOutput build-sre-runtime
+      - name: Test and build SRE installer
+        run: |
+          pnpm check
+          pnpm --filter @sre/launcher tauri build
+      - name: Package and sign release metadata
+        shell: pwsh
+        run: ./tooling/scripts/package-sre-release.ps1 -Version "$env:RELEASE_VERSION" -Channel "$env:RELEASE_CHANNEL" -ReleaseBaseUrl "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}"
+      - uses: actions/upload-artifact@v7
+        with: { name: sre-windows-release, path: release-assets/*, if-no-files-found: error }
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/sre-v') || inputs.publish
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          prerelease: ${{ env.RELEASE_CHANNEL != 'stable' }}
+          fail_on_unmatched_files: true

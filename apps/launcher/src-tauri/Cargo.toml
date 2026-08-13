@@ -1,30 +1,44 @@
 [package]
-name = "ftep-launcher"
+name = "sre-launcher"
 version.workspace = true
-description = "FICSIT Treaty Enforcement Platform launcher"
-authors = ["FTEP Compliance Directorate"]
+description = "Super Runtime Environment desktop launcher"
+authors = ["SRE Project"]
 edition.workspace = true
 rust-version.workspace = true
 
 [lib]
-name = "ftep_launcher_lib"
+name = "sre_launcher_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2.5.6", features = [] }
 
 [dependencies]
-ftep-core = { path = "../../../crates/ftep-core" }
-ftep-runtime = { path = "../../../crates/ftep-runtime" }
-ftep-shipwright-adapter = { path = "../../../integrations/native/shipwright" }
+sre-core = { path = "../../../crates/ftep-core" }
+sre-runtime = { path = "../../../crates/ftep-runtime" }
+sre-library = { path = "../../../crates/sre-library" }
+sre-device = { path = "../../../crates/sre-device" }
+sre-entitlement = { path = "../../../crates/sre-entitlement" }
+sre-achievements = { path = "../../../crates/sre-achievements" }
+sre-overlay = { path = "../../../crates/sre-overlay" }
+sre-diagnostics = { path = "../../../crates/sre-diagnostics" }
+sre-updater = { path = "../../../crates/sre-updater" }
+sre-shipwright-adapter = { path = "../../../integrations/native/shipwright" }
+sre-wiiu-adapter = { path = "../../../integrations/emulator/wiiu" }
+sre-switch-adapter = { path = "../../../integrations/emulator/switch" }
 fs2 = "0.4.3"
+base64.workspace = true
+ed25519-dalek.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha1 = "0.10.6"
-sha2 = "0.10.9"
+sha2.workspace = true
 tauri = { version = "2.11.5", features = [] }
 tauri-plugin-dialog = "2.7.2"
-tempfile = "3.23.0"
+tauri-plugin-opener = "2.5.4"
+tempfile.workspace = true
+url.workspace = true
+uuid.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.61.3", features = [

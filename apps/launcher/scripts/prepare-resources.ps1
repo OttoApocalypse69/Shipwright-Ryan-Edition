@@ -50,7 +50,7 @@ foreach ($artifact in @($extractor, $runtime)) {
     }
 }
 
-Write-Host "Prepared FTEP launcher resources."
+Write-Host "Prepared SRE launcher resources."
 Write-Host "  Extractor: $extractor"
 Write-Host "  Runtime:   $runtime"
 Write-Host "  Archive:   $runtimeArchive"

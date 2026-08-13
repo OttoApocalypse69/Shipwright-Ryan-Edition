@@ -1,30 +1,26 @@
-# FTEP development
+# Development
 
-Install workspace dependencies and run the normal gates from the repository
-root:
+Prerequisites: Node.js 24, pnpm 11.19, Rust 1.88 or newer, Git, and—only for the native Shipwright/installer path—Visual Studio C++ x64 tools, Windows SDK, CMake, and Ninja.
 
 ```powershell
-pnpm install
-pnpm test
-pnpm lint
-pnpm build
+pnpm install --frozen-lockfile
+pnpm check
+pnpm --filter @sre/launcher dev:web
+pnpm --filter @ftep/web dev
 ```
 
-Focused commands:
+`pnpm check` is the release-candidate gate. Focused commands:
 
 ```powershell
-pnpm --filter @ftep/launcher test
-pnpm --filter @ftep/launcher build:web
 node tooling/scripts/validate-repository-metadata.mjs
-cargo test --workspace
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+pnpm --filter @sre/launcher test
+pnpm --filter @ftep/web test
+pnpm --filter @ftep/web build
 ```
 
-Use `pnpm dev:web` for UI-only development. `pnpm dev` starts Tauri and requires
-the Windows native build environment and prepared Shipwright resources described
-in `apps/launcher/README.md`.
+Tests must use synthetic fixtures and temporary directories/databases. Never commit game data, proprietary assets, firmware, keys, OAuth credentials, signing keys, `.env` values, local identities, or generated release output. Keep compatibility labels evidence based. Use parameterized SQL and direct process argument arrays.
 
-CI and tests must use synthetic fixtures. Never add ROMs, firmware, console
-keys, title keys, proprietary game assets, OAuth secrets, or private device
-keys to the repository or test logs.
+The local web server needs a development-only `AUTH_SECRET`. PostgreSQL/OAuth/signing features additionally need variables from `apps/web/.env.example`; absence must produce an explicit unavailable state rather than a fabricated success.

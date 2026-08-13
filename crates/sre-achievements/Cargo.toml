@@ -1,0 +1,17 @@
+[package]
+name = "sre-achievements"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Offline-first SRE achievement engine"
+publish = false
+
+[dependencies]
+rusqlite.workspace = true
+serde.workspace = true
+sre-core = { path = "../ftep-core" }
+sre-overlay = { path = "../sre-overlay" }
+sre-runtime = { path = "../ftep-runtime" }
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -50,9 +50,12 @@ graphs/
 apps/launcher/node_modules/
 apps/launcher/dist/
 apps/launcher/*.tsbuildinfo
+apps/web/.next/
+apps/web/*.tsbuildinfo
 apps/launcher/src-tauri/target/
 apps/launcher/src-tauri/gen/
 /target/
+/release-assets/
 apps/launcher/resources/runtime/*.exe
 apps/launcher/resources/runtime/*.dll
 apps/launcher/resources/runtime/*.pdb

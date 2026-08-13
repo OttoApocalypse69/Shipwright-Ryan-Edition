@@ -55,6 +55,17 @@ pub struct RuntimeCandidate {
     pub compatibility: CompatibilityState,
 }
 
+/// Original, non-infringing presentation metadata. SRE never downloads or
+/// embeds publisher artwork from this field.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CoverMetadata {
+    pub kind: String,
+    pub title_mark: String,
+    pub accent_color: String,
+    pub background_color: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct GameVariant {
@@ -71,6 +82,8 @@ pub struct GameDefinition {
     pub id: GameId,
     pub franchise: FranchiseId,
     pub title: String,
+    pub description: String,
+    pub cover: CoverMetadata,
     pub variants: Vec<GameVariant>,
     pub preferred_variant: GameVariantId,
     pub achievement_namespace: String,
@@ -145,6 +158,22 @@ fn validate_game(game: &GameDefinition) -> Result<(), CatalogError> {
             game.id
         )));
     }
+    if game.description.trim().is_empty() {
+        return Err(CatalogError::new(format!(
+            "game {} has an empty description",
+            game.id
+        )));
+    }
+    if game.cover.kind != "ORIGINAL_PLACEHOLDER"
+        || game.cover.title_mark.trim().is_empty()
+        || !valid_hex_color(&game.cover.accent_color)
+        || !valid_hex_color(&game.cover.background_color)
+    {
+        return Err(CatalogError::new(format!(
+            "game {} has invalid or non-original cover metadata",
+            game.id
+        )));
+    }
     if !valid_namespace(&game.achievement_namespace) {
         return Err(CatalogError::new(format!(
             "game {} has invalid achievement namespace {:?}",
@@ -201,13 +230,13 @@ fn validate_variant(game: &GameDefinition, variant: &GameVariant) -> Result<(), 
             )));
         }
     }
-    if let Some(preferred) = &variant.preferred_runtime {
-        if !runtime_ids.contains(preferred) {
-            return Err(CatalogError::new(format!(
-                "game {} variant {} prefers unknown runtime {}",
-                game.id, variant.id, preferred
-            )));
-        }
+    if let Some(preferred) = &variant.preferred_runtime
+        && !runtime_ids.contains(preferred)
+    {
+        return Err(CatalogError::new(format!(
+            "game {} variant {} prefers unknown runtime {}",
+            game.id, variant.id, preferred
+        )));
     }
 
     let mut requirement_ids = BTreeSet::new();
@@ -242,17 +271,30 @@ fn valid_namespace(value: &str) -> bool {
         })
 }
 
+fn valid_hex_color(value: &str) -> bool {
+    value.len() == 7
+        && value.starts_with('#')
+        && value[1..].bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const MINIMAL: &str = r#"
+    const MINIMAL: &str = r##"
     {
       "schemaVersion": 1,
       "games": [{
         "id": "fixture-game",
         "franchise": "fixture",
         "title": "Fixture Game",
+        "description": "Synthetic test fixture.",
+        "cover": {
+          "kind": "ORIGINAL_PLACEHOLDER",
+          "titleMark": "FG",
+          "accentColor": "#55c2ff",
+          "backgroundColor": "#101827"
+        },
         "variants": [{
           "id": "fixture",
           "originalPlatform": "OTHER",
@@ -267,7 +309,7 @@ mod tests {
         "preferredVariant": "fixture",
         "achievementNamespace": "ftep.game.fixture-game"
       }]
-    }"#;
+    }"##;
 
     #[test]
     fn parses_and_queries_a_valid_catalog() {

@@ -1,4 +1,4 @@
-name: FTEP monorepo
+name: SRE and FTEP monorepo
 
 on:
   pull_request:
@@ -8,6 +8,7 @@ on:
       - "integrations/**"
       - "packages/**"
       - "runtimes/**"
+      - "database/**"
       - "tooling/**"
       - "Cargo.toml"
       - "Cargo.lock"
@@ -23,6 +24,7 @@ on:
       - "integrations/**"
       - "packages/**"
       - "runtimes/**"
+      - "database/**"
       - "tooling/**"
       - "Cargo.toml"
       - "Cargo.lock"
@@ -36,7 +38,7 @@ permissions:
 
 jobs:
   workspace:
-    name: Rust and TypeScript workspace
+    name: Rust, launcher, and TypeScript workspace
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -71,3 +73,38 @@ jobs:
 
       - name: Build workspace
         run: pnpm build
+
+  migrations:
+    name: PostgreSQL migration
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ftep_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ftep_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Apply migrations from an empty database
+        env:
+          PGPASSWORD: postgres
+        run: psql -h 127.0.0.1 -U postgres -d ftep_test -v ON_ERROR_STOP=1 -f database/migrations/0001_ftep_core.sql
+
+  security:
+    name: Dependency and static security checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+        with: { version: 11.19.0, run_install: false }
+      - uses: actions/setup-node@v6
+        with: { node-version: 24, cache: pnpm }
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level high
+      - run: cargo install cargo-audit --locked
+      - run: cargo audit

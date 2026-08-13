@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "FTEP",
+  "productName": "SRE",
   "version": "0.1.0",
-  "identifier": "com.ftep.launcher",
+  "identifier": "environment.sre.launcher",
   "build": {
     "beforeDevCommand": "npm run dev:web",
     "devUrl": "http://127.0.0.1:1420",
@@ -12,7 +12,8 @@
   "app": {
     "windows": [
       {
-        "title": "FTEP Launcher",
+        "label": "main",
+        "title": "SRE — Super Runtime Environment",
         "width": 1180,
         "height": 760,
         "minWidth": 920,
@@ -20,6 +21,24 @@
         "resizable": true,
         "fullscreen": false,
         "center": true
+      },
+      {
+        "label": "overlay",
+        "title": "SRE Overlay",
+        "url": "index.html?overlay=1",
+        "width": 430,
+        "height": 150,
+        "x": 24,
+        "y": 24,
+        "resizable": false,
+        "fullscreen": false,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "visible": false,
+        "shadow": false
       }
     ],
     "security": {
@@ -31,15 +50,17 @@
     "targets": ["nsis"],
     "resources": {
       "../resources/runtime/": "runtime/",
+      "../resources/trust/": "trust/",
       "../resources/extractor/": "extractor/",
       "../../../soh/assets/yml/": "extractor/yml/"
     },
-    "publisher": "FTEP Compliance Directorate",
-    "shortDescription": "Industrial diplomacy through excessive software engineering.",
-    "longDescription": "A consumer-friendly launcher for the FICSIT Treaty Enforcement Platform.",
+    "publisher": "SRE Project",
+    "shortDescription": "One library. Multiple runtimes. Far too much infrastructure.",
+    "longDescription": "Super Runtime Environment desktop library, powered by the FICSIT Treaty Enforcement Platform.",
     "windows": {
       "nsis": {
-        "installMode": "perMachine"
+        "installMode": "perMachine",
+        "startMenuFolder": "SRE"
       }
     }
   }

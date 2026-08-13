@@ -1,25 +1,17 @@
 # Game catalog
 
-The versioned catalog lives at
-`packages/game-catalog/catalog.v1.json`; its structural schema is adjacent and
-Rust semantic validation lives in `ftep-core`.
+`packages/game-catalog/catalog.v1.json` is the single catalog source for launcher and web UI. `schema.v1.json` defines its serialized contract. Metadata validation rejects duplicate IDs, unknown runtime candidates, missing source requirements, invalid compatibility values, invalid cover metadata, or drift from the required seven-title set.
 
-Stable IDs currently scoped for end-to-end work, in priority order:
+Current evidence labels:
 
-1. `zelda-oot`
-2. `zelda-mm`
-3. `zelda-botw`
-4. `zelda-totk`
+| Title | Preferred path | Status |
+|---|---|---|
+| Ocarina of Time | Shipwright native | Supported |
+| Majora's Mask | Two Ship candidate | Investigating |
+| A Link to the Past | Zelda3 candidate | Investigating |
+| Breath of the Wild | user-selected Cemu-compatible runtime | Experimental |
+| Tears of the Kingdom | generic user-selected Switch runtime | Experimental |
+| Echoes of Wisdom | generic user-selected Switch runtime | Investigating |
+| Animal Crossing: New Horizons | generic user-selected Switch runtime | Experimental |
 
-Each game contains variants, original platform, ordered runtime candidates,
-source requirements, a preferred variant/runtime, and a provider-neutral
-achievement namespace. File names are never authoritative game identity.
-
-Compatibility belongs to a game + variant + runtime pathway. An architecture
-slot is not evidence of support. Promotion to `SUPPORTED` requires repeatable
-setup, validation, launch, and runtime-health evidence for that exact pathway.
-The initial catalog therefore marks only the already verified OoT/Shipwright
-path as supported.
-
-The catalog must not contain proprietary content, console keys, firmware,
-secrets, or links intended to acquire copyrighted game material.
+Original cover metadata is intentionally typographic and generated from catalog colors/marks; copyrighted box art is not stored. A status changes only with reproducible adapter and acceptance evidence.

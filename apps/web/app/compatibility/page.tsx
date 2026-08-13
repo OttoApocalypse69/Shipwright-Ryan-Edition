@@ -1,0 +1,4 @@
+import { compatibilityRows } from "@/lib/catalog";
+
+export const metadata = { title: "Compatibility" };
+export default function CompatibilityPage() { const rows = compatibilityRows(); return <section className="shell section"><span className="eyebrow">Compatibility Directorate</span><h2>Compatibility</h2><p className="lede">A supported title is a specific game + variant + runtime combination—not a marketing promise.</p><div className="panel"><table className="table"><thead><tr><th>Game</th><th>Variant</th><th>Runtime</th><th>Status</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.gameId}-${row.variant}-${row.runtimeId}`}><td>{row.title}</td><td>{row.platform.replaceAll("_", " ")}</td><td>{row.runtimeId}</td><td><span className={`badge ${row.status}`}>{row.status}</span></td></tr>)}</tbody></table></div></section>; }

@@ -54,6 +54,17 @@
         }
       }
     },
+    "cover": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "titleMark", "accentColor", "backgroundColor"],
+      "properties": {
+        "kind": { "const": "ORIGINAL_PLACEHOLDER" },
+        "titleMark": { "type": "string", "minLength": 1, "maxLength": 8 },
+        "accentColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "backgroundColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+      }
+    },
     "variant": {
       "type": "object",
       "additionalProperties": false,
@@ -99,6 +110,8 @@
         "id",
         "franchise",
         "title",
+        "description",
+        "cover",
         "variants",
         "preferredVariant",
         "achievementNamespace"
@@ -107,6 +120,8 @@
         "id": { "$ref": "#/$defs/identifier" },
         "franchise": { "$ref": "#/$defs/identifier" },
         "title": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "cover": { "$ref": "#/$defs/cover" },
         "variants": {
           "type": "array",
           "minItems": 1,

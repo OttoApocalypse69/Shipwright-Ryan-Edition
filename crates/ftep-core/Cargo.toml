@@ -1,9 +1,9 @@
 [package]
-name = "ftep-core"
+name = "sre-core"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Provider-neutral domain identifiers and game catalog for FTEP"
+description = "Provider-neutral domain identifiers and game catalog for SRE"
 publish = false
 
 [dependencies]

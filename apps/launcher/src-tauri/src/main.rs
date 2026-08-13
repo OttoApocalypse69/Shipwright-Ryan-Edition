@@ -1,3 +1,3 @@
 fn main() {
-    ftep_launcher_lib::run();
+    sre_launcher_lib::run();
 }

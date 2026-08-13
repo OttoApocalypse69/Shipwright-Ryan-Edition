@@ -1,5 +1,5 @@
-use ftep_core::{GameDefinition, GameId, GameVariantId, RuntimeId};
 use serde::{Deserialize, Serialize};
+use sre_core::{GameDefinition, GameId, GameVariantId, RuntimeId};
 use std::collections::BTreeMap;
 use std::fmt;
 use std::path::PathBuf;
@@ -72,6 +72,23 @@ pub struct DetectionResult {
     pub runtime_id: RuntimeId,
     pub status: DetectionStatus,
     pub installation: Option<RuntimeInstallation>,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum VersionStatus {
+    Supported,
+    Unsupported,
+    KnownBroken,
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionValidation {
+    pub status: VersionStatus,
+    pub detected_version: Option<String>,
     pub summary: String,
 }
 
@@ -155,6 +172,48 @@ pub enum PlayablePrecision {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProcessObservation {
+    pub running: bool,
+    pub observed_at_unix_ms: u64,
+    pub exit_code: Option<i32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayableDetection {
+    pub playable: bool,
+    pub precision: PlayablePrecision,
+    pub method: String,
+    pub observed_at_unix_ms: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveLocation {
+    pub path: PathBuf,
+    pub confidence: PlayablePrecision,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum DiagnosticSeverity {
+    Info,
+    Warning,
+    Error,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeDiagnostic {
+    pub id: String,
+    pub severity: DiagnosticSeverity,
+    pub summary: String,
+    pub remediation: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum RuntimeEvent {
     RuntimeReady {
@@ -206,10 +265,19 @@ pub enum RuntimeSessionState {
 pub struct RuntimeSession {
     pub session_id: String,
     pub game_id: GameId,
+    pub variant_id: GameVariantId,
     pub runtime_id: RuntimeId,
+    pub device_id: Option<String>,
     pub state: RuntimeSessionState,
     pub process_id: Option<u32>,
     pub synthetic_fixture: bool,
+    pub requested_at_unix_ms: u64,
+    pub started_at_unix_ms: Option<u64>,
+    pub playable_at_unix_ms: Option<u64>,
+    pub ended_at_unix_ms: Option<u64>,
+    pub duration_ms: Option<u64>,
+    pub exit_code: Option<i32>,
+    pub launch_result: String,
     pub initial_events: Vec<RuntimeEvent>,
 }
 
@@ -269,6 +337,10 @@ pub trait RuntimeProvider: Send + Sync {
     fn distribution_mode(&self) -> DistributionMode;
     fn capabilities(&self) -> RuntimeCapabilities;
     fn detect(&self) -> Result<DetectionResult, RuntimeError>;
+    fn validate_version(
+        &self,
+        installation: &RuntimeInstallation,
+    ) -> Result<VersionValidation, RuntimeError>;
     fn validate_source(
         &self,
         game: &GameDefinition,
@@ -287,4 +359,18 @@ pub trait RuntimeProvider: Send + Sync {
         config: &RuntimeConfig,
     ) -> Result<(), RuntimeError>;
     fn launch(&self, request: LaunchRequest) -> Result<RuntimeSession, RuntimeError>;
+    fn observe_process(&self, session: &RuntimeSession)
+    -> Result<ProcessObservation, RuntimeError>;
+    fn determine_playable_state(
+        &self,
+        session: &RuntimeSession,
+    ) -> Result<PlayableDetection, RuntimeError>;
+    fn find_save_location(
+        &self,
+        installation: &GameInstallation,
+    ) -> Result<Option<SaveLocation>, RuntimeError>;
+    fn diagnostics(
+        &self,
+        installation: Option<&GameInstallation>,
+    ) -> Result<Vec<RuntimeDiagnostic>, RuntimeError>;
 }

@@ -24,7 +24,7 @@ pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
         .map_err(|error| format!("FICSIT-0001: Storage directory could not be created: {error}"))?;
 
     let mut temporary = tempfile::Builder::new()
-        .prefix(".ftep-write-")
+        .prefix(".sre-write-")
         .tempfile_in(parent)
         .map_err(|error| {
             format!("FICSIT-0001: Temporary state file could not be created: {error}")

@@ -1,0 +1,14 @@
+[package]
+name = "sre-wiiu-adapter"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "SRE external Wii U runtime adapter"
+publish = false
+
+[dependencies]
+sre-core = { path = "../../../crates/ftep-core" }
+sre-runtime = { path = "../../../crates/ftep-runtime" }
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -1,17 +1,21 @@
-//! FTEP adapter for the Shipwright native runtime.
+//! SRE adapter for the Shipwright native runtime.
 
-use ftep_core::{GameDefinition, RuntimeId};
-use ftep_runtime::{
-    DetectionResult, DetectionStatus, DistributionMode, GameInstallation, GameSource, LaunchMode,
-    LaunchRequest, PreparationContext, PreparedGame, RuntimeCapabilities, RuntimeConfig,
-    RuntimeError, RuntimeErrorCode, RuntimeInstallation, RuntimeKind, RuntimeProvider,
-    RuntimeSession, RuntimeSessionState, SourceValidation, VerificationResult,
-};
 use serde::Deserialize;
+use sre_core::{GameDefinition, RuntimeId};
+use sre_runtime::{
+    DetectionResult, DetectionStatus, DiagnosticSeverity, DistributionMode, GameInstallation,
+    GameSource, LaunchMode, LaunchRequest, PlayableDetection, PlayablePrecision,
+    PreparationContext, PreparedGame, ProcessObservation, RuntimeCapabilities, RuntimeConfig,
+    RuntimeDiagnostic, RuntimeError, RuntimeErrorCode, RuntimeInstallation, RuntimeKind,
+    RuntimeProvider, RuntimeSession, RuntimeSessionState, SaveLocation, SourceValidation,
+    VerificationResult, VersionStatus, VersionValidation,
+};
+use std::collections::BTreeMap;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
+use std::sync::Mutex;
 
 pub const SHIPWRIGHT_RUNTIME_PROTOCOL: u32 = 1;
 const SHIPWRIGHT_RUNTIME_ID: &str = "shipwright";
@@ -36,6 +40,7 @@ struct RuntimeBundle {
 pub struct ShipwrightAdapter {
     id: RuntimeId,
     runtime_roots: Vec<PathBuf>,
+    children: Mutex<BTreeMap<u32, Child>>,
 }
 
 impl ShipwrightAdapter {
@@ -44,6 +49,7 @@ impl ShipwrightAdapter {
             id: RuntimeId::new(SHIPWRIGHT_RUNTIME_ID)
                 .expect("the built-in Shipwright runtime id must be valid"),
             runtime_roots: runtime_roots.into_iter().collect(),
+            children: Mutex::new(BTreeMap::new()),
         }
     }
 
@@ -54,7 +60,7 @@ impl ShipwrightAdapter {
     fn inspect_runtime_root(&self, root: &Path) -> Result<Option<RuntimeBundle>, RuntimeError> {
         let executable = root.join("soh.exe");
         let resource_archive = root.join("soh.o2r");
-        let metadata_path = root.join("ftep-runtime.json");
+        let metadata_path = root.join("sre-runtime.json");
         if !executable.is_file() || !resource_archive.is_file() || !metadata_path.is_file() {
             return Ok(None);
         }
@@ -217,6 +223,31 @@ impl RuntimeProvider for ShipwrightAdapter {
         })
     }
 
+    fn validate_version(
+        &self,
+        installation: &RuntimeInstallation,
+    ) -> Result<VersionValidation, RuntimeError> {
+        let current = self.find_bundle()?;
+        let supported = current.as_ref().is_some_and(|bundle| {
+            bundle.root == installation.root
+                && installation.version.as_deref() == Some(&bundle.metadata.shipwright_version)
+        });
+        Ok(VersionValidation {
+            status: if supported {
+                VersionStatus::Supported
+            } else {
+                VersionStatus::Unsupported
+            },
+            detected_version: installation.version.clone(),
+            summary: if supported {
+                "Shipwright runtime protocol and platform are supported."
+            } else {
+                "Shipwright runtime metadata does not match the detected bundle."
+            }
+            .to_owned(),
+        })
+    }
+
     fn validate_source(
         &self,
         _game: &GameDefinition,
@@ -304,29 +335,156 @@ impl RuntimeProvider for ShipwrightAdapter {
                 .with_technical_details(error.to_string())
             })?;
 
+        let process_id = child.id();
+        self.children
+            .lock()
+            .map_err(|_| {
+                RuntimeError::new(
+                    RuntimeErrorCode::Internal,
+                    "Runtime process registry is unavailable.",
+                )
+            })?
+            .insert(process_id, child);
+
         Ok(RuntimeSession {
             session_id: request.session_id,
             game_id: request.installation.game_id,
+            variant_id: request.installation.variant_id,
             runtime_id: self.id.clone(),
+            device_id: request.config.values.get("device_id").cloned(),
             state: RuntimeSessionState::RuntimeStarted,
-            process_id: Some(child.id()),
+            process_id: Some(process_id),
             synthetic_fixture: false,
+            requested_at_unix_ms: now_unix_ms(),
+            started_at_unix_ms: Some(now_unix_ms()),
+            playable_at_unix_ms: None,
+            ended_at_unix_ms: None,
+            duration_ms: None,
+            exit_code: None,
+            launch_result: "PROCESS_STARTED".to_owned(),
             initial_events: vec![],
         })
     }
+
+    fn observe_process(
+        &self,
+        session: &RuntimeSession,
+    ) -> Result<ProcessObservation, RuntimeError> {
+        let Some(process_id) = session.process_id else {
+            return Ok(ProcessObservation {
+                running: false,
+                observed_at_unix_ms: now_unix_ms(),
+                exit_code: session.exit_code,
+            });
+        };
+        let mut children = self.children.lock().map_err(|_| {
+            RuntimeError::new(
+                RuntimeErrorCode::Internal,
+                "Runtime process registry is unavailable.",
+            )
+        })?;
+        let Some(child) = children.get_mut(&process_id) else {
+            return Ok(ProcessObservation {
+                running: session.exit_code.is_none(),
+                observed_at_unix_ms: now_unix_ms(),
+                exit_code: session.exit_code,
+            });
+        };
+        let exit = child.try_wait().map_err(|error| {
+            RuntimeError::new(
+                RuntimeErrorCode::Internal,
+                "Shipwright process state could not be observed.",
+            )
+            .with_technical_details(error.to_string())
+        })?;
+        Ok(ProcessObservation {
+            running: exit.is_none(),
+            observed_at_unix_ms: now_unix_ms(),
+            exit_code: exit.and_then(|status| status.code()),
+        })
+    }
+
+    fn determine_playable_state(
+        &self,
+        session: &RuntimeSession,
+    ) -> Result<PlayableDetection, RuntimeError> {
+        let observation = self.observe_process(session)?;
+        let elapsed = session
+            .started_at_unix_ms
+            .map(|started| observation.observed_at_unix_ms.saturating_sub(started))
+            .unwrap_or(0);
+        Ok(PlayableDetection {
+            playable: observation.running && elapsed >= 3_000,
+            precision: PlayablePrecision::Approximate,
+            method: "process alive plus 3 second startup threshold".to_owned(),
+            observed_at_unix_ms: observation.observed_at_unix_ms,
+        })
+    }
+
+    fn find_save_location(
+        &self,
+        installation: &GameInstallation,
+    ) -> Result<Option<SaveLocation>, RuntimeError> {
+        let path = installation.root.join("Save");
+        Ok(path.exists().then_some(SaveLocation {
+            path,
+            confidence: PlayablePrecision::Approximate,
+            summary: "Shipwright save directory detected beside the imported assets.".to_owned(),
+        }))
+    }
+
+    fn diagnostics(
+        &self,
+        installation: Option<&GameInstallation>,
+    ) -> Result<Vec<RuntimeDiagnostic>, RuntimeError> {
+        let detection = self.detect()?;
+        let mut findings = vec![RuntimeDiagnostic {
+            id: "shipwright-runtime".to_owned(),
+            severity: if detection.status == DetectionStatus::Available {
+                DiagnosticSeverity::Info
+            } else {
+                DiagnosticSeverity::Error
+            },
+            summary: detection.summary,
+            remediation: (detection.status != DetectionStatus::Available)
+                .then(|| "Repair or reinstall the SRE-bundled native runtime.".to_owned()),
+        }];
+        if let Some(installation) = installation {
+            let verification = self.verify(installation)?;
+            findings.push(RuntimeDiagnostic {
+                id: "shipwright-game".to_owned(),
+                severity: if verification.ready {
+                    DiagnosticSeverity::Info
+                } else {
+                    DiagnosticSeverity::Error
+                },
+                summary: verification.summary,
+                remediation: (!verification.ready)
+                    .then(|| "Re-import legally supplied compatible game data.".to_owned()),
+            });
+        }
+        Ok(findings)
+    }
+}
+
+fn now_unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ftep_core::{GameId, GameVariantId};
-    use ftep_runtime::{LaunchMode, RuntimeConfig};
+    use sre_core::{GameId, GameVariantId};
+    use sre_runtime::{LaunchMode, RuntimeConfig};
 
     fn write_bundle(root: &Path, protocol: u32) {
         fs::write(root.join("soh.exe"), b"exe").unwrap();
         fs::write(root.join("soh.o2r"), b"resource").unwrap();
         fs::write(
-            root.join("ftep-runtime.json"),
+            root.join("sre-runtime.json"),
             format!(
                 r#"{{"schema_version":1,"shipwright_version":"9.2.3","runtime_protocol":{protocol},"platform":"windows-x64"}}"#
             ),

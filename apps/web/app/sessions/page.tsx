@@ -1,0 +1,3 @@
+import { InfoCard, InfoPage } from "@/app/_components/info-page";
+export const metadata = { title: "Sessions" };
+export default function SessionsPage() { return <InfoPage eyebrow="Lifecycle records" title="Sessions" intro="Sessions record the selected game, variant, runtime, device, timing, playable method, duration, and launch result."><InfoCard title="Exact"><p>Native semantic signals may produce PLAYABLE_EXACT.</p></InfoCard><InfoCard title="Approximate"><p>External runtimes use process, window, and startup-threshold evidence and are labeled PLAYABLE_APPROXIMATE.</p></InfoCard></InfoPage>; }

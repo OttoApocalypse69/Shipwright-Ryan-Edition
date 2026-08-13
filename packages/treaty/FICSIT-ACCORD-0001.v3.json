@@ -1,0 +1,31 @@
+{
+  "treatyId": "FICSIT-ACCORD-0001",
+  "version": "3.0.0",
+  "title": "Great Zelda-Satisfactory Accords",
+  "schedule": {
+    "qualifyingMinutes": 30,
+    "expectedMinMinutes": 30,
+    "expectedMaxMinutes": 120,
+    "dailyRecognitionCapMinutes": 240,
+    "realLifeOverrides": true
+  },
+  "articles": [
+    { "number": 1, "title": "Provider Technical Obligations", "summary": "The Provider maintains SRE in good faith while preserving legal and security boundaries." },
+    { "number": 2, "title": "Satisfactory Cooperation", "summary": "Voluntary cooperation sessions of at least 30 minutes qualify; 30 to 120 minutes is the normal range." },
+    { "number": 3, "title": "World Preservation", "summary": "Shared worlds and saves are backed up and treated with care." },
+    { "number": 4, "title": "Avoidable Repair and Token Cost", "summary": "Avoidable damage may be recorded for humorous, cooperative remediation." },
+    { "number": 5, "title": "No Rage Quitting", "summary": "Parties communicate before abandoning a scheduled cooperative activity." },
+    { "number": 6, "title": "Good-Faith Participation", "summary": "Participation is collaborative and honest, not mechanically optimized around loopholes." },
+    { "number": 7, "title": "Major Infrastructure Change Control", "summary": "Material shared-world changes require notice and agreement." },
+    { "number": 8, "title": "Save Integrity", "summary": "SRE never deletes, encrypts, or silently modifies user saves." },
+    { "number": 9, "title": "Remediation", "summary": "Breaches use proportionate, documented, non-destructive remediation." },
+    { "number": 10, "title": "Scheduling", "summary": "Schedules respect availability, consent, time zones, work, sleep, and real life." },
+    { "number": 11, "title": "Hydration Recommendation", "summary": "Long sessions may show a dismissible hydration reminder." },
+    { "number": 12, "title": "Anti-Loophole and Good Faith", "summary": "Technical compliance does not override the cooperative purpose of the Accord." },
+    { "number": 13, "title": "Entitlement Remedies", "summary": "Suspension only prevents a future FTEP-authorized launch; it never damages files or systems." },
+    { "number": 14, "title": "Restoration of Privileges", "summary": "Completed remediation restores future launch eligibility and is recorded transparently." },
+    { "number": 15, "title": "Scope Expansion", "summary": "New title requests enter review and do not automatically create contractual debt." },
+    { "number": 16, "title": "Reciprocal Performance", "summary": "Each party's obligations remain proportionate and mutually understood." },
+    { "number": 17, "title": "Anti-Crunch and Human Limits", "summary": "No sleep deprivation, continuous play, coercive crunch, or health-compromising behavior is recognized or required." }
+  ]
+}

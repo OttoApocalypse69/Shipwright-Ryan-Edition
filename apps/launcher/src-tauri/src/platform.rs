@@ -34,7 +34,7 @@ pub(crate) fn probe_controller() -> ProbeResult {
     ProbeResult {
         available: false,
         summary: "Controller probe unavailable on this platform".to_owned(),
-        details: "Windows is the first-class Milestone 1.5 target.".to_owned(),
+        details: "Windows is the first-class SRE release-candidate target.".to_owned(),
     }
 }
 
@@ -114,6 +114,6 @@ pub(crate) fn probe_graphics() -> ProbeResult {
     ProbeResult {
         available: false,
         summary: "Graphics probe unavailable on this platform".to_owned(),
-        details: "Windows is the first-class Milestone 1.5 target.".to_owned(),
+        details: "Windows is the first-class SRE release-candidate target.".to_owned(),
     }
 }

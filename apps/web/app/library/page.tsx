@@ -1,0 +1,4 @@
+import { InfoCard, InfoPage } from "@/app/_components/info-page";
+import { catalog } from "@/lib/catalog";
+export const metadata = { title: "Library" };
+export default function LibraryPage() { return <InfoPage eyebrow="SRE synchronization view" title="Library" intro="The desktop launcher is authoritative for local paths; FTEP stores only account-level library and compatibility state."><InfoCard title="Catalog"><p>{catalog.games.length} release-candidate titles are available for setup.</p></InfoCard><InfoCard title="Local content boundary"><p>Game files, runtime material, save files, and absolute local paths are never uploaded into the web library.</p></InfoCard><InfoCard title="Eligibility"><p>Policy eligibility and technical compatibility are evaluated separately before launch.</p></InfoCard></InfoPage>; }

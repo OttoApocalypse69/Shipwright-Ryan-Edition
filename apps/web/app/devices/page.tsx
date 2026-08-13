@@ -1,0 +1,3 @@
+import { InfoCard, InfoPage } from "@/app/_components/info-page";
+export const metadata = { title: "Devices" };
+export default function DevicesPage() { return <InfoPage eyebrow="Privacy-preserving identity" title="Devices" intro="Each SRE installation uses a random UUID and local asymmetric key—not hardware fingerprinting."><InfoCard title="Registration"><p>Device public keys can be registered after browser authentication. Private device keys remain local.</p></InfoCard><InfoCard title="Revocation"><p>Revocation blocks future FTEP-authorized launches only. It never deletes files, saves, or runtimes.</p></InfoCard></InfoPage>; }

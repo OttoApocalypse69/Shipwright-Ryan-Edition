@@ -1,10 +1,10 @@
 use crate::{importer, platform};
-use ftep_core::{GameId, GameVariantId, RuntimeId};
-use ftep_runtime::{
+use serde::{Deserialize, Serialize};
+use sre_core::{GameId, GameVariantId, RuntimeId};
+use sre_runtime::{
     DetectionStatus, GameInstallation, LaunchMode, LaunchRequest, RuntimeConfig, RuntimeProvider,
 };
-use ftep_shipwright_adapter::{SHIPWRIGHT_RUNTIME_PROTOCOL, ShipwrightAdapter};
-use serde::{Deserialize, Serialize};
+use sre_shipwright_adapter::{SHIPWRIGHT_RUNTIME_PROTOCOL, ShipwrightAdapter};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Manager;
@@ -16,7 +16,6 @@ const OOT_GAME_ID: &str = "zelda-oot";
 pub(crate) struct GameLaunchRequest {
     game_id: String,
     synthetic: bool,
-    entitlement_active: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -53,7 +52,7 @@ fn adapter(app: &tauri::AppHandle) -> ShipwrightAdapter {
 
 pub(crate) fn find_runtime(
     app: &tauri::AppHandle,
-) -> Result<Option<ftep_runtime::RuntimeInstallation>, String> {
+) -> Result<Option<sre_runtime::RuntimeInstallation>, String> {
     let detection = adapter(app)
         .detect()
         .map_err(|error| format!("FICSIT-0008: {error}"))?;
@@ -71,9 +70,6 @@ fn validate_launch_request(request: &GameLaunchRequest) -> Result<GameId, String
     if request.synthetic {
         return Err("FICSIT-0005: Synthetic onboarding can never launch a game.".to_owned());
     }
-    if !request.entitlement_active {
-        return Err("FICSIT-0005: A current entitlement is required before launch.".to_owned());
-    }
     let game_id = GameId::new(request.game_id.clone())
         .map_err(|error| format!("FICSIT-0007: Invalid game identifier: {error}"))?;
     if game_id.as_str() != OOT_GAME_ID {
@@ -90,7 +86,7 @@ fn session_id() -> Result<String, String> {
         .duration_since(UNIX_EPOCH)
         .map_err(|_| "FICSIT-0001: System clock is before the Unix epoch.".to_owned())?
         .as_millis();
-    Ok(format!("ftep-{timestamp}-{}", std::process::id()))
+    Ok(format!("sre-{timestamp}-{}", std::process::id()))
 }
 
 #[tauri::command]
@@ -99,6 +95,7 @@ pub(crate) fn launch_game(
     request: GameLaunchRequest,
 ) -> Result<LaunchReport, String> {
     let game_id = validate_launch_request(&request)?;
+    crate::services::authorized_account(&app, game_id.as_str(), "nintendo")?;
     let graphics = platform::probe_graphics();
     if !graphics.available {
         return Err(format!(
@@ -161,15 +158,6 @@ mod tests {
             validate_launch_request(&GameLaunchRequest {
                 game_id: OOT_GAME_ID.to_owned(),
                 synthetic: true,
-                entitlement_active: true,
-            })
-            .is_err()
-        );
-        assert!(
-            validate_launch_request(&GameLaunchRequest {
-                game_id: OOT_GAME_ID.to_owned(),
-                synthetic: false,
-                entitlement_active: false,
             })
             .is_err()
         );
@@ -177,7 +165,6 @@ mod tests {
             validate_launch_request(&GameLaunchRequest {
                 game_id: "zelda-totk".to_owned(),
                 synthetic: false,
-                entitlement_active: true,
             })
             .is_err()
         );
@@ -185,7 +172,6 @@ mod tests {
             validate_launch_request(&GameLaunchRequest {
                 game_id: OOT_GAME_ID.to_owned(),
                 synthetic: false,
-                entitlement_active: true,
             })
             .unwrap()
             .as_str(),

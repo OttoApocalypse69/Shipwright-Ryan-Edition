@@ -1,88 +1,58 @@
-# FTEP
+# SRE
 
-## FICSIT Treaty Enforcement Platform
+## Super Runtime Environment
 
-FTEP is a Windows-first game-library and runtime-orchestration platform for an
-unreasonable but carefully engineered purpose: make supported Zelda pathways
-pleasant to set up while administering the Great Zelda-Satisfactory Accords.
+SRE is a Windows-first desktop game library and runtime orchestrator. It gives users a guided, catalog-driven setup for supported native ports and user-installed external runtimes while keeping proprietary game data local.
 
-FTEP owns the user experience, library, policy, entitlements, achievements,
-configuration, and orchestration. Native ports and emulators are replaceable
-runtime providers. Ship of Harkinian/Shipwright is the first provider; it is not
-the platform architecture.
+FTEP—the FICSIT Treaty Enforcement Platform—is the optional web and policy control plane. It provides browser OAuth/OIDC, random-device registration, signed offline entitlement leases, Accord policy, compatibility administration, achievements, sessions, release discovery, and audit records. Private signing material stays server-side; SRE ships only an Ed25519 trust set.
 
-## Current state
+## Release-candidate scope
 
-The verified Milestone 1.5 vertical slice includes a Tauri/React launcher,
-local OoT validation and asset preparation, native Windows diagnostics, guarded
-Shipwright launch, a non-playable synthetic onboarding path, and an NSIS
-installer. The first monorepo extraction adds provider-neutral game catalog and
-runtime contracts without moving or rewriting upstream Shipwright sources.
+- Seven catalog titles: Ocarina of Time, Majora's Mask, A Link to the Past, Breath of the Wild, Tears of the Kingdom, Echoes of Wisdom, and Animal Crossing: New Horizons.
+- Shipwright is the supported native path for OoT. Cemu-compatible Wii U and generic Switch adapters are external/manual integrations and are labelled experimental or investigating according to evidence.
+- Five-screen first run, catalog library, per-game setup, process-backed sessions, exact/approximate playable events, ten offline-first achievements, a separate click-through overlay, SRE Doctor, signed leases, and a signed updater model.
+- Next.js FTEP site with user pages, a role-gated admin surface, Auth.js provider architecture, PostgreSQL migrations, parameterized API queries, CSP nonces, and GitHub release discovery.
+- Per-machine NSIS installer, portable package recipe, signed update manifest, checksums, CI, and release workflow.
 
-Not implemented yet: production OAuth/OIDC, PostgreSQL control plane, signed
-device entitlements/offline leases, achievements, overlay, multi-game setup,
-or signed updates. UI placeholders are not production security controls.
+SRE does not distribute or locate Nintendo game data, console keys, firmware, copyrighted assets, or third-party emulator binaries. Users provide lawful game data and install external runtimes themselves. Revocation can refuse future FTEP-authorized launches; it never deletes local files, saves, runtimes, or data.
 
 ## Repository map
 
 ```text
-apps/launcher/              FTEP desktop launcher
-crates/ftep-core/           stable IDs and provider-neutral game catalog model
-crates/ftep-runtime/        runtime interface, events, registry, synthetic fixtures
-packages/game-catalog/      versioned data-driven catalog and schema
-packages/treaty/            immutable versioned treaty documents
-packages/third-party/       integration license/distribution registry
-runtimes/manifests/         runtime acquisition and release policy
-soh/                        preserved upstream Shipwright application source
-torch/                      pinned upstream extraction-tool submodule
-libultraship/               pinned upstream runtime-framework submodule
+apps/launcher/              SRE Tauri/React desktop application
+apps/web/                   FTEP Next.js web and API application
+crates/sre-*/               local library, device, entitlement, achievements,
+                             overlay, diagnostics, and updater services
+crates/ftep-core/           package sre-core: generic catalog identities/model
+crates/ftep-runtime/        package sre-runtime: provider/session contract
+crates/ftep-policy/         Accord and compliance policy
+integrations/               native, Wii U, and generic Switch adapters
+packages/game-catalog/      versioned catalog and JSON schema
+packages/treaty/            canonical Accord documents
+packages/third-party/       evidence-based component/distribution registry
+database/migrations/        PostgreSQL control-plane schema
+tooling/scripts/            validation, trust-set, packaging, and signing tools
 ```
 
-See [the migration assessment](docs/MONOREPO_MIGRATION.md) for the audited
-current coupling, exact target tree, risk boundaries, and phased plan.
+## Developer gates
 
-## Developer commands
-
-Prerequisites for the workspace checks are Node.js, pnpm, and Rust:
+Install Node.js 24, pnpm 11.19, the stable Rust toolchain, and the Windows C++/SDK prerequisites used by upstream Shipwright. From the root:
 
 ```powershell
-pnpm install
-pnpm test
-pnpm lint
-pnpm build
+pnpm install --frozen-lockfile
+pnpm check
 ```
 
-Focused Rust commands:
+Focused development:
 
 ```powershell
-cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings
+pnpm --filter @sre/launcher dev:web
+pnpm --filter @ftep/web dev
+cargo run -p sre-diagnostics --bin sre -- doctor --json
 ```
 
-`pnpm dev` starts the desktop launcher and therefore needs the Windows native
-toolchain plus prepared Shipwright runtime resources. Use `pnpm dev:web` for
-the launcher UI without the native shell. Detailed native build and packaging
-steps live in [apps/launcher/README.md](apps/launcher/README.md); upstream CMake
-requirements remain in [docs/BUILDING.md](docs/BUILDING.md).
+Native resource preparation and installer commands are in [apps/launcher/README.md](apps/launcher/README.md). Deployment and secret requirements are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). The [Ryan Operations Manual](docs/RYAN_OPERATIONS_MANUAL.md) is the shortest operator path.
 
-Turborepo is intentionally not present while the repository has only one
-JavaScript application. pnpm and Cargo provide the current task graph without
-another orchestration layer.
+## Current external blockers
 
-## Game data and runtime policy
-
-FTEP does not include, locate, or download Nintendo ROMs, game images,
-copyrighted game assets, firmware, console keys, title keys, or authentication
-secrets. Users supply their own compatible game data and any legitimately
-required runtime material. FTEP does not implement circumvention logic.
-
-Compatibility labels are evidence-based. At this stage only the preserved OoT
-Shipwright pathway is marked `SUPPORTED`; MM, BOTW, and TOTK entries describe
-scoped architectural targets and remain `INVESTIGATING`.
-
-## Licensing status
-
-This Shipwright-derived root currently has no top-level upstream license file.
-Public redistribution is blocked until the applicable Shipwright terms and all
-bundled dependency notices are confirmed. Known and unknown evidence is
-recorded without guessing in `packages/third-party/components.v1.json`.
+No public release is claimed by this repository state. Production deployment requires OAuth application credentials, PostgreSQL, lease and release Ed25519 signing keys, a GitHub release target, and final third-party redistribution review. The inherited Shipwright-derived root has no confirmed top-level redistribution grant, so bundled public redistribution remains blocked pending legal evidence. External runtimes and game data are user-managed.

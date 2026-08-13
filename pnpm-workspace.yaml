@@ -3,6 +3,10 @@ packages:
   - "packages/*"
   - "services/*"
 
+allowBuilds:
+  unrs-resolver: true
+
 onlyBuiltDependencies:
   - "@tauri-apps/cli"
   - "esbuild"
+  - "unrs-resolver"

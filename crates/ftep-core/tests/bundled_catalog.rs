@@ -1,4 +1,4 @@
-use ftep_core::{CompatibilityState, GameCatalog, GameId};
+use sre_core::{CompatibilityState, GameCatalog, GameId};
 
 const CATALOG: &str = include_str!("../../../packages/game-catalog/catalog.v1.json");
 
@@ -10,7 +10,18 @@ fn bundled_catalog_is_semantically_valid_and_has_initial_targets_in_order() {
         .iter()
         .map(|game| game.id.as_str())
         .collect::<Vec<_>>();
-    assert_eq!(ids, ["zelda-oot", "zelda-mm", "zelda-botw", "zelda-totk"]);
+    assert_eq!(
+        ids,
+        [
+            "zelda-oot",
+            "zelda-mm",
+            "zelda-alttp",
+            "zelda-botw",
+            "zelda-totk",
+            "zelda-echoes-of-wisdom",
+            "animal-crossing-new-horizons",
+        ]
+    );
 }
 
 #[test]

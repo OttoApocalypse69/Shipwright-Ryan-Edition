@@ -1,27 +1,12 @@
-# FTEP monorepo
+# Monorepo guide
 
-Rust packages are members of the root Cargo workspace. JavaScript/TypeScript
-applications and packages are members of the root pnpm workspace. The existing
-CMake project remains the build root for the preserved Shipwright provider.
+The repository has three build graphs: pnpm for TypeScript applications, Cargo for Rust packages, and the preserved upstream CMake build for Shipwright resources.
 
-Root commands:
+- The root `pnpm-lock.yaml` is authoritative for JavaScript dependencies.
+- The root `Cargo.lock` is authoritative for all Rust workspace members.
+- `pnpm check` runs lint, formatting/clippy, unit/integration tests, metadata validation, TypeScript/Next builds, and Rust builds.
+- CMake remains isolated under the existing root targets; SRE consumes prepared binaries/resources and does not rewrite upstream sources.
 
-```powershell
-pnpm install
-pnpm dev       # Tauri launcher; native resources required
-pnpm dev:web   # UI-only Vite development
-pnpm build
-pnpm test
-pnpm lint
-```
+Dependency direction is `apps -> services/policy -> core/runtime`, with concrete adapters implementing `sre-runtime`. Core crates may not depend on apps or integrations. The web app shares the catalog JSON as data and does not import launcher implementation code.
 
-Cargo uses the root `Cargo.lock`. The pre-workspace nested launcher lockfile is
-temporarily retained during the additive migration and will be removed only
-after clean-machine workspace builds are established. The npm lockfile is also
-retained until pnpm-based CI and packaging are proven.
-
-Turborepo is deferred until a second real JS application or service creates a
-task graph that benefits from caching and concurrent orchestration.
-
-See [MONOREPO_MIGRATION.md](MONOREPO_MIGRATION.md) for the target tree,
-dependency rules, and destructive-change boundaries.
+Generated directories (`target`, `.next`, `dist`, native build trees, `release-assets`) are not source. Do not add ROMs, firmware, console keys, title keys, game assets, OAuth secrets, signing private keys, or local device identities anywhere in the worktree.

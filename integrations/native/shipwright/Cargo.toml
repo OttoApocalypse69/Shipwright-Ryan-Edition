@@ -1,14 +1,14 @@
 [package]
-name = "ftep-shipwright-adapter"
+name = "sre-shipwright-adapter"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Shipwright native runtime adapter for FTEP"
+description = "Shipwright native runtime adapter for SRE"
 publish = false
 
 [dependencies]
-ftep-core = { path = "../../../crates/ftep-core" }
-ftep-runtime = { path = "../../../crates/ftep-runtime" }
+sre-core = { path = "../../../crates/ftep-core" }
+sre-runtime = { path = "../../../crates/ftep-runtime" }
 serde.workspace = true
 serde_json.workspace = true
-tempfile = "3.23.0"
+tempfile.workspace = true

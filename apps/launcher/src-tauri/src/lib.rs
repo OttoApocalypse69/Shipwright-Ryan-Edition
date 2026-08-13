@@ -1,6 +1,8 @@
 mod importer;
+mod library;
 mod platform;
 mod runtime;
+mod services;
 mod storage;
 
 use serde::{Deserialize, Serialize};
@@ -12,7 +14,7 @@ use std::path::Path;
 use tauri::Manager;
 
 const SUPPORTED_HASHES_JSON: &str = include_str!("../../../../docs/supportedHashes.json");
-const TREATY_V2_JSON: &str = include_str!("../../../../packages/treaty/FICSIT-TREATY-0001.v2.json");
+const TREATY_V3_JSON: &str = include_str!("../../../../packages/treaty/FICSIT-ACCORD-0001.v3.json");
 const MINIMUM_FREE_BYTES: u64 = 5 * 1024 * 1024 * 1024;
 
 #[derive(Debug, Deserialize)]
@@ -168,9 +170,13 @@ async fn validate_game_data(
 
 #[tauri::command]
 fn treaty_metadata() -> Result<TreatyMetadata, String> {
-    let identity: TreatyIdentity = serde_json::from_str(TREATY_V2_JSON)
+    let identity: TreatyIdentity = serde_json::from_str(TREATY_V3_JSON)
         .map_err(|error| format!("FICSIT-0001: The treaty document is invalid: {error}"))?;
-    let digest = Sha256::digest(TREATY_V2_JSON.as_bytes());
+    let canonical: serde_json::Value = serde_json::from_str(TREATY_V3_JSON)
+        .map_err(|error| format!("FICSIT-0001: The treaty document is invalid: {error}"))?;
+    let canonical = serde_json::to_vec(&canonical)
+        .map_err(|error| format!("FICSIT-0001: Cannot canonicalize the Accord: {error}"))?;
+    let digest = Sha256::digest(canonical);
 
     Ok(TreatyMetadata {
         treaty_id: identity.treaty_id,
@@ -239,10 +245,10 @@ fn run_preflight(app: tauri::AppHandle, request: PreflightRequest) -> Vec<Diagno
 
     let app_data_dir = app.path().app_data_dir().ok();
     let writable = app_data_dir.as_ref().is_some_and(|directory| {
-        let test_path = directory.join(format!(".ftep-write-test-{}", std::process::id()));
+        let test_path = directory.join(format!(".sre-write-test-{}", std::process::id()));
         fs::create_dir_all(directory)
             .and_then(|_| File::create(&test_path))
-            .and_then(|mut file| file.write_all(b"FTEP"))
+            .and_then(|mut file| file.write_all(b"SRE"))
             .and_then(|_| fs::remove_file(test_path))
             .is_ok()
     });
@@ -280,7 +286,7 @@ fn run_preflight(app: tauri::AppHandle, request: PreflightRequest) -> Vec<Diagno
         free_bytes
             .map(|bytes| format!("{:.1} GiB available", bytes as f64 / 1024_f64.powi(3)))
             .unwrap_or_else(|| "Free space could not be measured".to_owned()),
-        "FTEP reserves a 5 GiB minimum for import staging and updates.",
+        "SRE reserves a 5 GiB minimum for import staging and updates.",
     ));
 
     let runtime_result = runtime::find_runtime(&app);
@@ -415,8 +421,8 @@ fn run_preflight(app: tauri::AppHandle, request: PreflightRequest) -> Vec<Diagno
         "network",
         "Control plane",
         DiagnosticStatus::Warning,
-        "Remote services are not mandatory in Milestone 1.5",
-        "The launcher remains on its local/synthetic adapter until the control plane milestone.",
+        "Remote services are optional while a cached lease remains valid",
+        "Connect FTEP to refresh account, policy, and entitlement state when available.",
     ));
 
     checks
@@ -426,7 +432,15 @@ fn run_preflight(app: tauri::AppHandle, request: PreflightRequest) -> Vec<Diagno
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(importer::ImportCoordinator::default())
+        .manage(services::LocalServices::default())
+        .setup(|app| {
+            if let Some(overlay) = app.get_webview_window("overlay") {
+                overlay.set_ignore_cursor_events(true)?;
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             validate_game_data,
             treaty_metadata,
@@ -435,10 +449,25 @@ pub fn run() {
             storage::save_onboarding_state,
             importer::import_game_data,
             importer::cancel_game_data_import,
-            runtime::launch_game
+            runtime::launch_game,
+            library::game_catalog,
+            library::load_library,
+            library::register_game,
+            services::device_identity,
+            services::verify_cached_lease,
+            services::cache_entitlement_lease,
+            services::entitlement_status,
+            services::session_history,
+            services::achievement_count,
+            services::begin_ftep_connection,
+            services::launch_registered_game,
+            services::run_sre_doctor,
+            services::export_diagnostics,
+            services::pop_overlay,
+            services::hide_overlay
         ])
         .run(tauri::generate_context!())
-        .expect("error while running the FTEP launcher");
+        .expect("error while running SRE");
 }
 
 #[cfg(test)]
@@ -469,8 +498,8 @@ mod tests {
     #[test]
     fn treaty_metadata_matches_the_canonical_document() {
         let metadata = treaty_metadata().unwrap();
-        assert_eq!(metadata.treaty_id, "FICSIT-TREATY-0001");
-        assert_eq!(metadata.version, "2.0.0");
+        assert_eq!(metadata.treaty_id, "FICSIT-ACCORD-0001");
+        assert_eq!(metadata.version, "3.0.0");
         assert_eq!(metadata.sha256.len(), 64);
     }
 }

@@ -28,7 +28,12 @@ function unique(values, label) {
 }
 
 const gameIds = unique(catalog.games.map((game) => game.id), "game catalog");
-if (gameIds.size !== 4) throw new Error("initial game catalog must contain exactly four scoped targets");
+if (gameIds.size !== 7) throw new Error("release catalog must contain exactly seven scoped targets");
+for (const game of catalog.games) {
+  if (game.cover?.kind !== "ORIGINAL_PLACEHOLDER") {
+    throw new Error(`${game.id} must use original placeholder cover metadata`);
+  }
+}
 
 const runtimeIds = unique(
   runtimeManifests.runtimes.map((runtime) => runtime.runtimeId),

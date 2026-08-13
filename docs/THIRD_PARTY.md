@@ -1,17 +1,7 @@
-# Third-party runtime and integration policy
+# Third-party components
 
-The machine-readable registry is
-`packages/third-party/components.v1.json`. Every integrated runtime or runtime
-dependency records its project URL, license evidence, redistribution mode,
-integration type, version, attribution requirement, and source availability.
+`packages/third-party/components.v1.json` is the evidence registry for runtime and integration licensing/distribution. Each entry records source URL, observed version, license evidence, source availability, attribution needs, integration mode, and redistribution decision.
 
-Unknown licensing is represented as `UNKNOWN` plus
-`BLOCKED_PENDING_REVIEW`; it is never filled from memory or assumption. The
-current Shipwright-derived root and fetched `dr_libs` entry are explicitly
-blocked pending confirmation. MIT evidence is recorded for the checked-in
-libultraship, Torch, and StormLib license files.
+External Cemu-compatible and Switch runtimes are `EXTERNAL`/`MANUAL_ONLY`: SRE neither downloads nor redistributes them. It makes no warranty that a user's chosen runtime, keys, firmware, or game content is lawful in every jurisdiction.
 
-Before public release, release tooling must also generate and verify notices
-for the complete Cargo, npm, CMake, vendored, fetched, and system dependency
-closure. A runtime may be supported as `EXTERNAL` or `MANUAL_ONLY` without FTEP
-redistributing it.
+Checked-in dependencies with repository license evidence retain their notices. Unknown evidence is represented as `UNKNOWN` and `BLOCKED_PENDING_REVIEW`, never guessed. The inherited Shipwright-derived root currently lacks a confirmed top-level license/redistribution grant, so a public bundle remains blocked until maintainers complete the full Cargo, npm, CMake, vendored, fetched, and system-dependency notice review.

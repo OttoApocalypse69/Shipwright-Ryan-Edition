@@ -1,0 +1,10 @@
+[package]
+name = "sre-overlay"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Non-invasive SRE overlay event queue"
+publish = false
+
+[dependencies]
+serde.workspace = true

@@ -1,0 +1,15 @@
+[package]
+name = "sre-library"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "SRE catalog-backed local library and installation registry"
+publish = false
+
+[dependencies]
+sre-core = { path = "../ftep-core" }
+sre-runtime = { path = "../ftep-runtime" }
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+uuid.workspace = true

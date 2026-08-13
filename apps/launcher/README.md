@@ -1,56 +1,42 @@
-# FTEP launcher
+# SRE desktop launcher
 
-This is the Milestone 1.5 Windows-first launcher vertical slice described in [`docs/FTEP_SPECIFICATION.md`](../../docs/FTEP_SPECIFICATION.md).
+The Tauri 2 / React launcher provides five-step onboarding, local random device identity, Accord acceptance, catalog library, OoT import, external Wii U/Switch setup, signed entitlement enforcement, process-backed sessions, offline achievements, a separate overlay window, and sanitized diagnostics.
 
-Implemented now:
+## UI development
 
-- Tauri 2 and React application boundary;
-- resumable thirteen-stage onboarding state machine;
-- canonical fourteen-article treaty viewer and acceptance metadata;
-- native file picker and local streaming game-data validator;
-- Shipwright supported-hash catalog integration;
-- maintained Shipwright extractor adapter with cancellation and atomic promotion;
-- atomic native onboarding-state persistence;
-- Windows Direct3D 11 and XInput probes;
-- pre-flight command and friendly expandable diagnostics with correct launch severity;
-- protocol-gated Shipwright runtime discovery and safe launch through the
-  provider-neutral FTEP runtime interface and `ShipwrightAdapter`;
-- synthetic, explicitly non-playable end-to-end onboarding path;
-- full Shipwright runtime/resource packaging;
-- Tauri per-machine NSIS packaging with normal shortcuts and uninstaller; and
-- deterministic frontend and Rust unit tests.
-
-Intentionally gated in this increment:
-
-- production OAuth and control-plane calls;
-- production device identity and signed entitlements;
-- signed updater integration.
-
-Milestone 1.5 uses clearly labeled local account/device/entitlement adapters until the control plane becomes mandatory. The real-data flow revalidates the selected file, runs extraction only in application-managed staging, and never modifies the original. The synthetic flow is rejected by the native launch gate and is labeled as non-playable throughout the UI.
-
-## Developer verification
-
-From this directory:
+From the repository root:
 
 ```powershell
-npm.cmd install
-npm.cmd run check
-npm.cmd run dev:web
+pnpm install --frozen-lockfile
+pnpm --filter @sre/launcher test
+pnpm --filter @sre/launcher lint
+pnpm --filter @sre/launcher dev:web
 ```
 
-Native development requires the Visual C++ x64 build tools and a Windows SDK. Build the maintained Shipwright tools and runtime, prepare generated launcher resources, then test/package Tauri:
+Browser preview uses fallback catalog/device/diagnostic data and cannot register files, cache a signed lease, or launch a runtime. Those actions require the Tauri desktop process.
+
+## Native resources and desktop development
+
+Use a Visual Studio x64 developer shell with Windows SDK, CMake, Ninja, Node/pnpm, and Rust. Build the preserved Shipwright extraction/runtime targets, then prepare the launcher resources:
 
 ```powershell
-$vsRoot = 'C:\Program Files\Microsoft Visual Studio\18\Community'
-Import-Module (Join-Path $vsRoot 'Common7\Tools\Microsoft.VisualStudio.DevShell.dll')
-Enter-VsDevShell -VsInstallPath $vsRoot -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
-
-# Configure/build Shipwright with the repository's CMake targets.
-# Generated build directories and binary resources are intentionally ignored.
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\prepare-resources.ps1
-cargo test --manifest-path src-tauri/Cargo.toml
-cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-npm.cmd run tauri -- build
+cmake -S . -B build-sre-tools -G Ninja -DCMAKE_BUILD_TYPE=Release -DSOH_TOOLS_ONLY=ON
+cmake --build build-sre-tools --target soh-torch
+cmake -S . -B build-sre-runtime -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build-sre-runtime --target GenerateSohOtr soh
+./apps/launcher/scripts/prepare-resources.ps1 -ToolsBuild build-sre-tools -RuntimeBuild build-sre-runtime -RuntimeOutput build-sre-runtime
 ```
 
-These commands are developer-only. The shipped user experience must never require them.
+For an entitlement-capable build, generate the public trust resource from the deployment's protected Ed25519 private key. The script writes only the derived public key:
+
+```powershell
+$env:FTEP_LEASE_SIGNING_PRIVATE_KEY = '<base64 PKCS8 DER from secret store>'
+$env:FTEP_SIGNING_KEY_ID = 'production-2026-01'
+node tooling/scripts/create-trusted-keyset.mjs apps/launcher/resources/trust/ftep-signing-keys.json
+Remove-Item Env:FTEP_LEASE_SIGNING_PRIVATE_KEY
+pnpm --filter @sre/launcher tauri build
+```
+
+The checked-in empty trust set is fail-closed: it permits UI/library/diagnostics development but no lease can be cached or used. Never commit a production-derived key-set change without treating it as public release-key material and reviewing rotation timing.
+
+The NSIS configuration installs per machine under SRE, creates normal Start menu/uninstall entries, and packages runtime, extractor, and trust resources. End users must never run these developer commands.

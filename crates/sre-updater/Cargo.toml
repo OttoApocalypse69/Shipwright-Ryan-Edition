@@ -1,0 +1,19 @@
+[package]
+name = "sre-updater"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Signed SRE release manifest verifier"
+publish = false
+
+[dependencies]
+base64.workspace = true
+ed25519-dalek.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+rand.workspace = true
+tempfile.workspace = true

@@ -1,14 +1,14 @@
 {
-  "name": "@ftep/monorepo",
+  "name": "@sre/monorepo",
   "private": true,
   "version": "0.1.0",
   "packageManager": "pnpm@11.19.0",
   "scripts": {
-    "dev": "pnpm --filter @ftep/launcher dev",
-    "dev:web": "pnpm --filter @ftep/launcher dev:web",
-    "build": "pnpm --filter @ftep/launcher build:web && cargo build --workspace",
-    "test": "pnpm --filter @ftep/launcher test && node tooling/scripts/validate-repository-metadata.mjs && cargo test --workspace",
-    "lint": "pnpm --filter @ftep/launcher lint && cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings",
+    "dev": "pnpm --filter @sre/launcher dev",
+    "dev:web": "pnpm --filter @ftep/web dev",
+    "build": "pnpm -r --if-present build && cargo build --workspace",
+    "test": "pnpm -r --if-present test && node tooling/scripts/validate-repository-metadata.mjs && cargo test --workspace",
+    "lint": "pnpm -r --if-present lint && cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings",
     "check": "pnpm lint && pnpm test && pnpm build"
   }
 }

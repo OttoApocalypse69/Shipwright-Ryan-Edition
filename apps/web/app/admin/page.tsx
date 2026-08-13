@@ -1,0 +1,2 @@
+const controls = ["View users and devices", "View library and sessions", "Record Satisfactory compliance", "Suspend or restore future launch eligibility", "Review achievement state", "Mark compatibility and runtime versions", "Record scope requests", "Review immutable audit history"];
+export default function AdminPage() { return <div className="grid">{controls.map((control) => <article className="card" key={control}><h3>{control}</h3><p>Available through role-checked, parameterized control-plane actions when PostgreSQL is configured.</p></article>)}</div>; }

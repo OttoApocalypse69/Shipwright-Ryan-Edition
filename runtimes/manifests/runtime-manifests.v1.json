@@ -35,26 +35,37 @@
       }
     },
     {
-      "runtimeId": "cemu",
-      "kind": "EXTERNAL_EMULATOR",
+      "runtimeId": "zelda3",
+      "kind": "NATIVE_PORT",
       "implementationStatus": "PLANNED",
+      "distribution": {
+        "mode": "MANUAL_ONLY",
+        "allowAutomaticDownload": false,
+        "releaseAllowed": false,
+        "reviewNote": "Catalog compatibility slot only; no adapter or redistribution decision is included in this release candidate."
+      }
+    },
+    {
+      "runtimeId": "cemu-compatible",
+      "kind": "EXTERNAL_EMULATOR",
+      "implementationStatus": "EXPERIMENTAL_ADAPTER",
       "distribution": {
         "mode": "EXTERNAL",
         "homepage": "https://cemu.info/",
         "allowAutomaticDownload": false,
         "releaseAllowed": false,
-        "reviewNote": "BOTW adapter architecture only; FTEP does not download the runtime or game data."
+        "reviewNote": "SRE detects or accepts a user-selected Cemu-compatible executable; it does not download the runtime or game data."
       }
     },
     {
       "runtimeId": "switch-runtime",
       "kind": "EXTERNAL_RUNTIME",
-      "implementationStatus": "INTERFACE_ONLY",
+      "implementationStatus": "EXPERIMENTAL_ADAPTER",
       "distribution": {
         "mode": "MANUAL_ONLY",
         "allowAutomaticDownload": false,
         "releaseAllowed": false,
-        "reviewNote": "Generic external Switch runtime slot with no selected provider or bundled implementation."
+        "reviewNote": "Generic external Switch provider supports user-selected concrete implementations. Nothing is bundled or automatically downloaded."
       }
     }
   ]

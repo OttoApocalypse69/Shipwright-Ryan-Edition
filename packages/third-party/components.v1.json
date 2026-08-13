@@ -61,6 +61,18 @@
       "attributionRequired": true,
       "sourceAvailable": true,
       "notes": "Fetched during the Shipwright build; collect and verify the exact upstream license before release."
+    },
+    {
+      "id": "cemu",
+      "name": "Cemu",
+      "projectUrl": "https://github.com/cemu-project/Cemu",
+      "license": "MPL-2.0",
+      "redistributionMode": "EXTERNAL",
+      "integrationType": "DETECTION_AND_MANUAL_SELECTION",
+      "version": "user-managed",
+      "attributionRequired": true,
+      "sourceAvailable": true,
+      "notes": "SRE neither bundles nor downloads Cemu. Users select an installation they obtained separately."
     }
   ]
 }

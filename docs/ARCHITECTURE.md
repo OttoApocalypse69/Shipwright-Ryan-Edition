@@ -1,44 +1,30 @@
-# FTEP architecture
+# SRE / FTEP architecture
 
-FTEP is the product and composition root. It owns library state, setup,
-authorization, sessions, events, achievements, diagnostics, and presentation.
-Runtime providers own only runtime-specific detection, source preparation,
-verification, configuration, launch, and event fidelity.
+SRE is the local data plane. FTEP is the browser-facing control and policy plane.
 
 ```text
-Launcher / future web UI
-          |
-          v
-Application services (incremental)
-          |
-          v
-ftep-core + ftep-runtime interfaces
-          ^
-          |
-Concrete native and emulator adapters
+FTEP web/API + PostgreSQL + server-only signing keys
+        | signed lease / public metadata
+        v
+SRE launcher services
+        | catalog resolution + policy authorization
+        v
+sre-runtime provider contract
+        |
+        +-- Shipwright native adapter
+        +-- Cemu-compatible external Wii U adapter
+        `-- generic user-selected Switch adapter
 ```
 
-The core crates cannot depend on Shipwright, Cemu, a Switch runtime, Tauri,
-filesystem layout, or OS process APIs. Concrete adapters depend on the FTEP
-interfaces. Catalog compatibility and runtime acquisition are data-driven and
-separate from executable orchestration.
+The core/runtime crates have no Tauri, web, Shipwright, Cemu, Switch-runtime, or operating-system process dependency. Adapters own detection, version/source validation, preparation, configuration, launch, observation, playable signal, save location, and diagnostics. The application owns the library, authorization, sessions, achievement evaluation, overlay, and UX.
 
-The first Phase C slice routes runtime discovery, protocol validation,
-resource staging, installation verification, and process launch through
-`integrations/native/shipwright`. Supported-source validation and cancellable
-Torch preparation remain directly coupled to the Tauri backend until the next
-behavior-preserving slice. That remaining coupling and the ordered extraction
-are recorded in [MONOREPO_MIGRATION.md](MONOREPO_MIGRATION.md).
+Trust boundaries:
 
-Trust boundaries and safety rules:
+- FTEP signs leases and release manifests with Ed25519 private keys held only by the deployment.
+- SRE verifies against a release-generated bundled public-key trust set. A web response or caller cannot replace that trust anchor.
+- A cached lease is bound to SRE's local random UUID identity and is checked at launch time. Policy eligibility and technical compatibility are independent.
+- External runtimes and user-supplied game data are untrusted inputs. Adapters pass explicit argument arrays, validate paths, and do not download proprietary material.
+- SRE is not tamper-proof DRM. Revocation blocks future authorized launches only and is non-destructive.
+- Diagnostics hash sensitive paths; private keys, tokens, full paths, and game content are never exported.
 
-- the control plane is a trusted policy service, but does not issue arbitrary
-  local commands;
-- the launcher runs on a user-controlled device and is not tamper-proof DRM;
-- runtimes are third-party executables;
-- game data is user-supplied proprietary material and is never logged or
-  uploaded by default;
-- adapters are orchestration code with narrowly scoped filesystem/process
-  authority;
-- revocation refuses future FTEP-authorized launches and does nothing
-  destructive.
+The desktop overlay is a separate transparent, non-focus-stealing, click-through Tauri window. Local achievements use SQLite and synchronize through a retry queue when FTEP is available. Session state is atomically persisted in JSON. FTEP uses parameterized PostgreSQL queries and role checks at both proxy/layout and API boundaries.
