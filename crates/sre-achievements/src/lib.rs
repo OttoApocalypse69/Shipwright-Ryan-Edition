@@ -168,7 +168,7 @@ impl AchievementEngine {
                 title: definition.title.to_owned(),
                 message: definition.description.to_owned(),
                 created_at_unix_ms: unlock.unlocked_at_unix_ms,
-                display_ms: 5_000,
+                display_ms: 15_000,
             })?;
         }
         Ok(unlocked)
@@ -293,7 +293,9 @@ mod tests {
             "internal target exceeded: {elapsed:?}"
         );
         assert!(elapsed.as_millis() <= 5_000);
-        assert_eq!(overlay.pop().unwrap().unwrap().title, "Ahh, Zelda");
+        let notification = overlay.pop().unwrap().unwrap();
+        assert_eq!(notification.title, "Ahh, Zelda");
+        assert_eq!(notification.display_ms, 15_000);
         assert!(
             engine
                 .evaluate(

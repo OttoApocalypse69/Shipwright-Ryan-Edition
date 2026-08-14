@@ -80,7 +80,12 @@ impl WiiURuntimeAdapter {
         if root.is_file() {
             return root
                 .extension()
-                .is_some_and(|ext| ext.eq_ignore_ascii_case("rpx"))
+                .is_some_and(|ext| {
+                    ext.eq_ignore_ascii_case("rpx")
+                        || ext.eq_ignore_ascii_case("wux")
+                        || ext.eq_ignore_ascii_case("wud")
+                        || ext.eq_ignore_ascii_case("wua")
+                })
                 .then(|| root.to_owned());
         }
         let code = root.join("code");
@@ -193,9 +198,9 @@ impl RuntimeProvider for WiiURuntimeAdapter {
             valid,
             detected_variant: valid.then(|| source.variant_id.clone()),
             summary: if valid {
-                "A Wii U RPX launch target was found in the user-selected installation."
+                "A Wii U RPX directory, WUX/WUD disc image, or WUA archive was found."
             } else {
-                "Select the legal Wii U game directory containing code/*.rpx."
+                "Select a legal Wii U game directory containing code/*.rpx, a .wux/.wud image, or a .wua archive."
             }
             .to_owned(),
         })
@@ -231,7 +236,7 @@ impl RuntimeProvider for WiiURuntimeAdapter {
             summary: if ready {
                 "Wii U installation is ready."
             } else {
-                "Wii U installation or RPX launch target is missing."
+                "Wii U installation, RPX launch target, WUX/WUD image, or WUA archive is missing."
             }
             .to_owned(),
         })
@@ -273,7 +278,7 @@ impl RuntimeProvider for WiiURuntimeAdapter {
         let target = Self::launch_target(&request.installation.root).ok_or_else(|| {
             RuntimeError::new(
                 RuntimeErrorCode::GameSourceMissing,
-                "The Wii U RPX launch target disappeared.",
+                "The Wii U launch target disappeared.",
             )
         })?;
         let mut command = Command::new(executable);
@@ -427,7 +432,7 @@ impl RuntimeProvider for WiiURuntimeAdapter {
                 },
                 summary: result.summary,
                 remediation: (!result.ready).then(|| {
-                    "Choose the dumped Wii U game directory that contains code/*.rpx.".to_owned()
+                    "Choose a dumped Wii U game directory containing code/*.rpx, a .wux/.wud image, or a .wua archive.".to_owned()
                 }),
             });
         }
@@ -487,6 +492,66 @@ mod tests {
         };
         assert!(
             !WiiURuntimeAdapter::new(None)
+                .validate_source(game, &source)
+                .unwrap()
+                .valid
+        );
+    }
+
+    #[test]
+    fn validates_a_user_supplied_botw_wux_image() {
+        let temp = tempfile::tempdir().unwrap();
+        let image = temp.path().join("botw.wux");
+        fs::write(&image, b"fixture").unwrap();
+        let catalog = GameCatalog::from_json(CATALOG).unwrap();
+        let game = catalog.game(&GameId::new("zelda-botw").unwrap()).unwrap();
+        let source = GameSource {
+            variant_id: GameVariantId::new("wiiu").unwrap(),
+            path: image,
+            synthetic_fixture: false,
+        };
+        assert!(
+            WiiURuntimeAdapter::new(None)
+                .validate_source(game, &source)
+                .unwrap()
+                .valid
+        );
+    }
+
+    #[test]
+    fn validates_a_user_supplied_botw_wud_image() {
+        let temp = tempfile::tempdir().unwrap();
+        let image = temp.path().join("botw.wud");
+        fs::write(&image, b"fixture").unwrap();
+        let catalog = GameCatalog::from_json(CATALOG).unwrap();
+        let game = catalog.game(&GameId::new("zelda-botw").unwrap()).unwrap();
+        let source = GameSource {
+            variant_id: GameVariantId::new("wiiu").unwrap(),
+            path: image,
+            synthetic_fixture: false,
+        };
+        assert!(
+            WiiURuntimeAdapter::new(None)
+                .validate_source(game, &source)
+                .unwrap()
+                .valid
+        );
+    }
+
+    #[test]
+    fn validates_a_user_supplied_botw_wua_archive() {
+        let temp = tempfile::tempdir().unwrap();
+        let image = temp.path().join("botw.wua");
+        fs::write(&image, b"fixture").unwrap();
+        let catalog = GameCatalog::from_json(CATALOG).unwrap();
+        let game = catalog.game(&GameId::new("zelda-botw").unwrap()).unwrap();
+        let source = GameSource {
+            variant_id: GameVariantId::new("wiiu").unwrap(),
+            path: image,
+            synthetic_fixture: false,
+        };
+        assert!(
+            WiiURuntimeAdapter::new(None)
                 .validate_source(game, &source)
                 .unwrap()
                 .valid

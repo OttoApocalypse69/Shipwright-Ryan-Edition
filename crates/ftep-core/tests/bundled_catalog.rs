@@ -15,7 +15,6 @@ fn bundled_catalog_is_semantically_valid_and_has_initial_targets_in_order() {
         [
             "zelda-oot",
             "zelda-mm",
-            "zelda-alttp",
             "zelda-botw",
             "zelda-totk",
             "zelda-echoes-of-wisdom",
@@ -25,7 +24,7 @@ fn bundled_catalog_is_semantically_valid_and_has_initial_targets_in_order() {
 }
 
 #[test]
-fn only_the_current_verified_oot_path_is_marked_supported() {
+fn only_verified_paths_are_marked_supported() {
     let catalog = GameCatalog::from_json(CATALOG).unwrap();
     let oot = catalog.game(&GameId::new("zelda-oot").unwrap()).unwrap();
     assert_eq!(
@@ -33,7 +32,40 @@ fn only_the_current_verified_oot_path_is_marked_supported() {
         CompatibilityState::Supported
     );
 
-    for game in catalog.games.iter().skip(1) {
+    let mm = catalog.game(&GameId::new("zelda-mm").unwrap()).unwrap();
+    assert_eq!(
+        mm.variants[0].runtime_candidates[0].compatibility,
+        CompatibilityState::Supported
+    );
+
+    let botw = catalog.game(&GameId::new("zelda-botw").unwrap()).unwrap();
+    assert_eq!(
+        botw.variants[0].runtime_candidates[0].compatibility,
+        CompatibilityState::Supported
+    );
+
+    let totk = catalog.game(&GameId::new("zelda-totk").unwrap()).unwrap();
+    assert_eq!(
+        totk.variants[0].runtime_candidates[0].compatibility,
+        CompatibilityState::Supported
+    );
+
+    let eow = catalog.game(&GameId::new("zelda-echoes-of-wisdom").unwrap()).unwrap();
+    assert_eq!(
+        eow.variants[0].runtime_candidates[0].compatibility,
+        CompatibilityState::Supported
+    );
+
+    for game in catalog
+        .games
+        .iter()
+        .filter(|game| {
+            !matches!(
+                game.id.as_str(),
+                "zelda-oot" | "zelda-mm" | "zelda-botw" | "zelda-totk" | "zelda-echoes-of-wisdom"
+            )
+        })
+    {
         assert!(
             game.variants
                 .iter()

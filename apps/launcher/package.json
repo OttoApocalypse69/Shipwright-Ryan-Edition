@@ -7,6 +7,7 @@
     "dev": "tauri dev",
     "dev:web": "vite --host 127.0.0.1 --port 1420",
     "build:web": "tsc -b && vite build",
+    "build:local-launcher": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-local-launcher.ps1",
     "test": "vitest run",
     "lint": "tsc -b --pretty false",
     "check": "npm run test && npm run build:web",

@@ -1,8 +1,9 @@
 import { generateKeyPairSync, verify } from "node:crypto";
 import { describe, expect, test } from "vitest";
-import { configuredProviderIds, roleForEmail } from "@/lib/auth-config";
+import { configuredProviderIds, localCredentialsEnabled, roleForEmail } from "@/lib/auth-config";
 import { mayPerform, requireAdmin } from "@/lib/authorization";
 import { compatibilityRows } from "@/lib/catalog";
+import { hashLocalPassword, safeLocalReturnTo, verifyLocalPassword } from "@/lib/local-credentials";
 import { parseStableRelease } from "@/lib/releases";
 import { signLease } from "@/lib/signing";
 import { accord, accordDocumentHash } from "@/lib/accord";
@@ -12,12 +13,28 @@ describe("authentication and authorization", () => {
     expect(configuredProviderIds({ AUTH_GITHUB_ID: "id", AUTH_GITHUB_SECRET: "secret", AUTH_OIDC_ID: "id", AUTH_OIDC_SECRET: "secret", AUTH_OIDC_ISSUER: "https://id.example" })).toEqual(["github", "oidc"]);
     expect(configuredProviderIds({ AUTH_GITHUB_ID: "id" })).toEqual([]);
   });
+  test("enables local passwords only outside production", () => {
+    expect(localCredentialsEnabled({ FTEP_LOCAL_CREDENTIALS_ENABLED: "true", NODE_ENV: "development" })).toBe(true);
+    expect(localCredentialsEnabled({ FTEP_LOCAL_CREDENTIALS_ENABLED: "true", NODE_ENV: "production" })).toBe(false);
+    expect(localCredentialsEnabled({ FTEP_LOCAL_CREDENTIALS_ENABLED: "false", NODE_ENV: "development" })).toBe(false);
+  });
   test("admin role matching is exact and authorization defaults closed", () => {
     expect(roleForEmail("teri@example.com", "teri@example.com,other@example.com")).toBe("admin");
     expect(roleForEmail("attacker@example.com", "teri@example.com")).toBe("user");
     expect(mayPerform("admin", "compatibility.write")).toBe(true);
     expect(() => requireAdmin("user")).toThrow("FTEP_ADMIN_REQUIRED");
   });
+});
+
+test("local account passwords use a salted verifier and safe local return paths", async () => {
+  const password = "not-a-real-password";
+  const hash = await hashLocalPassword(password);
+  expect(hash).not.toContain(password);
+  await expect(verifyLocalPassword(password, hash)).resolves.toBe(true);
+  await expect(verifyLocalPassword("wrong-password", hash)).resolves.toBe(false);
+  expect(safeLocalReturnTo("/connect?state=abc")).toBe("/connect?state=abc");
+  expect(safeLocalReturnTo("https://unsafe.example")).toBe("/dashboard");
+  expect(safeLocalReturnTo("//unsafe.example")).toBe("/dashboard");
 });
 
 describe("public APIs", () => {

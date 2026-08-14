@@ -52,6 +52,7 @@ apps/launcher/dist/
 apps/launcher/*.tsbuildinfo
 apps/web/.next/
 apps/web/*.tsbuildinfo
+apps/web/.env.local
 apps/launcher/src-tauri/target/
 apps/launcher/src-tauri/gen/
 /target/
@@ -63,6 +64,7 @@ apps/launcher/resources/runtime/*.o2r
 apps/launcher/resources/extractor/*.exe
 apps/launcher/resources/extractor/*.dll
 apps/launcher/resources/extractor/*.pdb
+apps/launcher/resources/extractor/assets/
 build-ftep-*/
 
 # Assets
@@ -108,6 +110,10 @@ x64/
 x86/
 bld/
 [Bb]in/
+# The diagnostics package intentionally has a Rust CLI source directory named
+# `bin`; it is source code, not a Visual Studio build output directory.
+!crates/sre-diagnostics/src/bin/
+!crates/sre-diagnostics/src/bin/**
 [Oo]bj/
 [Ll]og/
 
@@ -486,3 +492,4 @@ soh/properties.h
 /clang-format
 /clang-format.exe
 *.o2r
+START SRE.exe

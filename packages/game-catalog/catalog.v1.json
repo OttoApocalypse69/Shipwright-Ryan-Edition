@@ -7,7 +7,7 @@
       "franchise": "zelda",
       "title": "The Legend of Zelda: Ocarina of Time",
       "description": "A supported native-port path using game data legally supplied by the user.",
-      "cover": { "kind": "ORIGINAL_PLACEHOLDER", "titleMark": "OoT", "accentColor": "#f5c451", "backgroundColor": "#102d28" },
+      "cover": { "kind": "ORIGINAL_PLACEHOLDER", "titleMark": "OoT", "accentColor": "#f5c451", "backgroundColor": "#102d28", "bannerUrl": "https://cdn.mobygames.com/covers/4352943-the-legend-of-zelda-ocarina-of-time-nintendo-64-front-cover.jpg" },
       "variants": [{
         "id": "n64",
         "originalPlatform": "NINTENDO64",
@@ -25,13 +25,13 @@
       "id": "zelda-mm",
       "franchise": "zelda",
       "title": "The Legend of Zelda: Majora's Mask",
-      "description": "A native-port candidate retained for compatibility work; no runtime is bundled by SRE.",
-      "cover": { "kind": "ORIGINAL_PLACEHOLDER", "titleMark": "MM", "accentColor": "#d184ff", "backgroundColor": "#241431" },
+      "description": "A supported native-port path using SRE's bundled 2 Ship 2 Harkinian runtime and game data legally supplied by the user.",
+      "cover": { "kind": "ORIGINAL_PLACEHOLDER", "titleMark": "MM", "accentColor": "#d184ff", "backgroundColor": "#241431", "bannerUrl": "https://closeup.de/cdn/shop/files/G866110.jpg?v=1746445884&width=701" },
       "variants": [{
         "id": "n64",
         "originalPlatform": "NINTENDO64",
         "runtimeCandidates": [
-          { "runtimeId": "two-ship", "priority": 10, "compatibility": "INVESTIGATING" },
+          { "runtimeId": "two-ship", "priority": 10, "compatibility": "SUPPORTED" },
           { "runtimeId": "n64-runtime", "priority": 100, "compatibility": "INVESTIGATING" }
         ],
         "preferredRuntime": "two-ship",
@@ -41,31 +41,15 @@
       "achievementNamespace": "ftep.game.zelda-mm"
     },
     {
-      "id": "zelda-alttp",
-      "franchise": "zelda",
-      "title": "The Legend of Zelda: A Link to the Past",
-      "description": "A native-port candidate represented in the common library model.",
-      "cover": { "kind": "ORIGINAL_PLACEHOLDER", "titleMark": "ALttP", "accentColor": "#ef6b55", "backgroundColor": "#322018" },
-      "variants": [{
-        "id": "snes",
-        "originalPlatform": "SUPER_NINTENDO",
-        "runtimeCandidates": [{ "runtimeId": "zelda3", "priority": 10, "compatibility": "INVESTIGATING" }],
-        "preferredRuntime": "zelda3",
-        "sourceRequirements": [{ "id": "compatible-game-image", "kind": "GAME_IMAGE", "description": "Compatible game data supplied by the user for the selected native port.", "required": true }]
-      }],
-      "preferredVariant": "snes",
-      "achievementNamespace": "ftep.game.zelda-alttp"
-    },
-    {
       "id": "zelda-botw",
       "franchise": "zelda",
       "title": "The Legend of Zelda: Breath of the Wild",
-      "description": "Windows-first Wii U external-runtime support using a manually selected Cemu-compatible installation.",
-      "cover": { "kind": "ORIGINAL_PLACEHOLDER", "titleMark": "BOTW", "accentColor": "#69d7d1", "backgroundColor": "#12313d" },
+      "description": "Windows-first Wii U support using the managed Cemu runtime and game data legally supplied by the user.",
+      "cover": { "kind": "ORIGINAL_PLACEHOLDER", "titleMark": "BOTW", "accentColor": "#69d7d1", "backgroundColor": "#12313d", "bannerUrl": "https://i5.walmartimages.com/asr/5f94fd0f-973a-456f-81dd-8eba1c96a75a.da3ccfe995c5d6a5de09c452e4495763.jpeg" },
       "variants": [{
         "id": "wiiu",
         "originalPlatform": "WII_U",
-        "runtimeCandidates": [{ "runtimeId": "cemu-compatible", "priority": 10, "compatibility": "EXPERIMENTAL" }],
+        "runtimeCandidates": [{ "runtimeId": "cemu-compatible", "priority": 10, "compatibility": "SUPPORTED" }],
         "preferredRuntime": "cemu-compatible",
         "sourceRequirements": [
           { "id": "installed-game-directory", "kind": "DIRECTORY", "description": "A compatible Wii U installation dumped and supplied by the user.", "required": true },
@@ -79,12 +63,12 @@
       "id": "zelda-totk",
       "franchise": "zelda",
       "title": "The Legend of Zelda: Tears of the Kingdom",
-      "description": "Generic external Switch-runtime integration with user-managed runtime and game data.",
-      "cover": { "kind": "ORIGINAL_PLACEHOLDER", "titleMark": "TOTK", "accentColor": "#75e0a7", "backgroundColor": "#132e28" },
+      "description": "Ryujinx-ready external Switch runtime integration with user-managed runtime and game data.",
+      "cover": { "kind": "ORIGINAL_PLACEHOLDER", "titleMark": "TOTK", "accentColor": "#75e0a7", "backgroundColor": "#132e28", "bannerUrl": "https://geo-online.co.jp/geomart/reserve/zelda-totk/sp/img/mv.jpg" },
       "variants": [{
         "id": "switch",
         "originalPlatform": "SWITCH",
-        "runtimeCandidates": [{ "runtimeId": "switch-runtime", "priority": 10, "compatibility": "EXPERIMENTAL" }],
+        "runtimeCandidates": [{ "runtimeId": "switch-runtime", "priority": 10, "compatibility": "SUPPORTED" }],
         "preferredRuntime": "switch-runtime",
         "sourceRequirements": [
           { "id": "compatible-game-data", "kind": "GAME_IMAGE", "description": "Compatible Tears of the Kingdom game data supplied by the user.", "required": true },
@@ -99,11 +83,11 @@
       "franchise": "zelda",
       "title": "The Legend of Zelda: Echoes of Wisdom",
       "description": "A catalog-ready Switch title using the same generic external-runtime abstraction.",
-      "cover": { "kind": "ORIGINAL_PLACEHOLDER", "titleMark": "EoW", "accentColor": "#f2d56b", "backgroundColor": "#31243d" },
+      "cover": { "kind": "ORIGINAL_PLACEHOLDER", "titleMark": "EoW", "accentColor": "#f2d56b", "backgroundColor": "#31243d", "bannerUrl": "https://assets.nintendo.com/image/upload/q_auto%3Abest/f_auto/dpr_2.0/store/software/switch/70010000084618/e3a49cf14180cec09c515595fb7121b048a0f8327eae2d248909d0f0c64a9dc9" },
       "variants": [{
         "id": "switch",
         "originalPlatform": "SWITCH",
-        "runtimeCandidates": [{ "runtimeId": "switch-runtime", "priority": 10, "compatibility": "INVESTIGATING" }],
+        "runtimeCandidates": [{ "runtimeId": "switch-runtime", "priority": 10, "compatibility": "SUPPORTED" }],
         "preferredRuntime": "switch-runtime",
         "sourceRequirements": [
           { "id": "compatible-game-data", "kind": "GAME_IMAGE", "description": "Compatible Echoes of Wisdom game data supplied by the user.", "required": true },
@@ -118,7 +102,7 @@
       "franchise": "animal-crossing",
       "title": "Animal Crossing: New Horizons",
       "description": "A non-Zelda title proving that SRE's library and Switch runtime model are genuinely generic.",
-      "cover": { "kind": "ORIGINAL_PLACEHOLDER", "titleMark": "ACNH", "accentColor": "#ffb563", "backgroundColor": "#183c35" },
+      "cover": { "kind": "ORIGINAL_PLACEHOLDER", "titleMark": "ACNH", "accentColor": "#ffb563", "backgroundColor": "#183c35", "bannerUrl": "https://static.actugaming.net/media/2020/01/animal-crossing-new-horizons-key-art-e1577990302845.jpg" },
       "variants": [{
         "id": "switch",
         "originalPlatform": "SWITCH",

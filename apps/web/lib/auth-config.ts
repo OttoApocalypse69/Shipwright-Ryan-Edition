@@ -1,5 +1,9 @@
 export type FtepRole = "user" | "admin";
 
+export function localCredentialsEnabled(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
+  return env.FTEP_LOCAL_CREDENTIALS_ENABLED === "true" && env.NODE_ENV !== "production";
+}
+
 export function roleForEmail(email: string | null | undefined, configured = process.env.FTEP_ADMIN_EMAILS): FtepRole {
   const administrators = new Set((configured ?? "").split(",").map((value) => value.trim().toLowerCase()).filter(Boolean));
   return email && administrators.has(email.toLowerCase()) ? "admin" : "user";

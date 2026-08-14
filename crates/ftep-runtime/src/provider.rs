@@ -295,6 +295,7 @@ pub enum RuntimeErrorCode {
     GameSourceMissing,
     GameSourceInvalid,
     SyntheticLaunchForbidden,
+    OperationCancelled,
     OperationUnsupported,
     Internal,
 }

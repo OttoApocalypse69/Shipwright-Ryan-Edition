@@ -15,12 +15,13 @@
     {
       "runtimeId": "two-ship",
       "kind": "NATIVE_PORT",
-      "implementationStatus": "PLANNED",
+      "implementationStatus": "BUNDLED_ADAPTER",
       "distribution": {
-        "mode": "MANUAL_ONLY",
+        "mode": "BUNDLED",
+        "homepage": "https://github.com/HarbourMasters/2ship2harkinian",
         "allowAutomaticDownload": false,
-        "releaseAllowed": false,
-        "reviewNote": "Adapter, source workflow, version policy, and license review have not begun."
+        "releaseAllowed": true,
+        "reviewNote": "Reviewed official 2 Ship 2 Harkinian 5.0.0 Windows release. Upstream declares CC0-1.0; SRE bundles runtime files only, never ROMs or generated user archives. Source: https://github.com/HarbourMasters/2ship2harkinian/releases/download/5.0.0/2Ship-Battler-Alfa-Win64.zip (SHA-256 513f2899ad90b5f88221b3f2284ab45b36a34b435b1e1f273c12bc3320474dc6)."
       }
     },
     {
@@ -48,13 +49,13 @@
     {
       "runtimeId": "cemu-compatible",
       "kind": "EXTERNAL_EMULATOR",
-      "implementationStatus": "EXPERIMENTAL_ADAPTER",
+      "implementationStatus": "MANAGED_LOCAL_ADAPTER",
       "distribution": {
         "mode": "EXTERNAL",
         "homepage": "https://cemu.info/",
         "allowAutomaticDownload": false,
         "releaseAllowed": false,
-        "reviewNote": "SRE detects or accepts a user-selected Cemu-compatible executable; it does not download the runtime or game data."
+        "reviewNote": "SRE installed Cemu 2.6 from the official cemu-project GitHub release into the local user runtime directory (SHA-256 a6bcc2bc42a362d10213819948f3152fae7d47f70067f25939b51d3ddcfb0896). It does not bundle Cemu in SRE releases or retrieve game data, console keys, or firmware."
       }
     },
     {

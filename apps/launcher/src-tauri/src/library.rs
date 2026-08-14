@@ -5,6 +5,7 @@ use sre_core::{GameCatalog, GameId, GameVariantId, RuntimeId};
 use sre_library::{InstallationStatus, LibraryInstallation, LibraryState, LibraryStore};
 use sre_runtime::{GameSource, RuntimeProvider};
 use sre_switch_adapter::{ExternalSwitchImplementation, SwitchRuntimeProvider};
+use sre_two_ship_adapter::TwoShipAdapter;
 use sre_wiiu_adapter::WiiURuntimeAdapter;
 use std::path::PathBuf;
 
@@ -54,7 +55,13 @@ pub(crate) fn register_game(
         .game(&game_id)
         .ok_or_else(|| "FICSIT-0007: The selected game is not in the SRE catalog.".to_owned())?;
     let source_path = PathBuf::from(request.game_source);
-    let runtime_path = request.runtime_executable.map(PathBuf::from);
+    let mut runtime_path = request.runtime_executable.map(PathBuf::from);
+    if runtime_id.as_str() == "cemu-compatible" && runtime_path.is_none() {
+        runtime_path = Some(crate::importer::managed_cemu_executable(&app)?);
+    }
+    if runtime_id.as_str() == "switch-runtime" && runtime_path.is_none() {
+        runtime_path = Some(crate::importer::managed_ryujinx_executable(&app)?);
+    }
     let source = GameSource {
         variant_id: variant_id.clone(),
         path: source_path.clone(),
@@ -82,6 +89,12 @@ pub(crate) fn register_game(
                     .to_owned(),
             );
         }
+        "two-ship" => {
+            // Registration validates the original user file only. Runtime staging is
+            // deliberately deferred to the background launch worker.
+            let provider = TwoShipAdapter::new(crate::importer::two_ship_executable(&app)?);
+            provider.validate_source(game, &source)
+        }
         _ => {
             return Err(
                 "FICSIT-0008: This catalog runtime has no release-candidate adapter.".to_owned(),
@@ -96,7 +109,7 @@ pub(crate) fn register_game(
         && !runtime_path.as_ref().is_some_and(|path| path.is_file())
     {
         return Err(
-            "FICSIT-0008: Choose the external runtime executable you installed separately."
+            "FICSIT-0008: The managed runtime is missing. Reinstall SRE."
                 .to_owned(),
         );
     }
@@ -109,6 +122,37 @@ pub(crate) fn register_game(
             runtime_id,
             source_path,
             runtime_path,
+        )
+        .map_err(|error| error.to_string())?;
+    store
+        .mark_status(
+            &installation.installation_id,
+            InstallationStatus::Ready,
+            None,
+        )
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub(crate) fn register_imported_shipwright_game(
+    app: tauri::AppHandle,
+) -> Result<LibraryInstallation, String> {
+    let catalog = catalog()?;
+    let game_id = GameId::new("zelda-oot").expect("the built-in OoT id must be valid");
+    let variant_id = GameVariantId::new("n64").expect("the built-in N64 id must be valid");
+    let runtime_id = RuntimeId::new("shipwright").expect("the built-in runtime id must be valid");
+    let imported_assets = crate::importer::current_asset_directory(&app)?.ok_or_else(|| {
+        "FICSIT-0006: Import compatible OoT game data before adding it to the library.".to_owned()
+    })?;
+    let store = store(&app)?;
+    let installation = store
+        .register(
+            &catalog,
+            game_id,
+            variant_id,
+            runtime_id,
+            imported_assets,
+            None,
         )
         .map_err(|error| error.to_string())?;
     store

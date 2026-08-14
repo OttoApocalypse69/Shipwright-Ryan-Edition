@@ -40,3 +40,19 @@ pnpm --filter @sre/launcher tauri build
 The checked-in empty trust set is fail-closed: it permits UI/library/diagnostics development but no lease can be cached or used. Never commit a production-derived key-set change without treating it as public release-key material and reviewing rotation timing.
 
 The NSIS configuration installs per machine under SRE, creates normal Start menu/uninstall entries, and packages runtime, extractor, and trust resources. End users must never run these developer commands.
+
+## One-click local startup
+
+For this checkout's local FTEP development mode, build the small helper once:
+
+```powershell
+pnpm --filter @sre/launcher build:local-launcher
+```
+
+This puts **`START SRE.exe`** at the top level of this project. Double-click
+it to open no terminal and start the same development SRE session as
+`pnpm --filter @sre/launcher dev`, including
+the dynamically ported local FTEP service. It is intentionally a source-checkout
+helper, not an end-user release installer; it requires the already-installed
+Node.js, pnpm, Docker/PostgreSQL, and local FTEP configuration. Startup output
+is written to `target\sre-local-launcher.log` if troubleshooting is needed.

@@ -3,7 +3,7 @@
 ## Use SRE
 
 1. Install the official `SRE-Setup-x64.exe` and open **SRE** from the Start menu.
-2. Connect FTEP in the browser, or finish offline setup for library/diagnostics only.
+2. Connect FTEP in the browser, or finish offline setup for library/diagnostics only. If setup is already complete, use **Connect / refresh FTEP** in the library sidebar to sign in and obtain a lease.
 3. SRE creates a random local device identity; read and accept Accord 3.0, then review the library/runtime/system checks.
 4. Pick a title and press **Set up**. Supply your own lawful game data. For BOTW/Switch titles, also select the external runtime executable you installed.
 5. Review the honest compatibility badge. A supported badge applies to the exact title/variant/runtime combination only.

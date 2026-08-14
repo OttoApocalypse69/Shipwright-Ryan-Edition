@@ -1,0 +1,11 @@
+[package]
+name = "sre-two-ship-adapter"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Managed 2 Ship 2 Harkinian runtime adapter for SRE"
+publish = false
+
+[dependencies]
+sre-core = { path = "../../../crates/ftep-core" }
+sre-runtime = { path = "../../../crates/ftep-runtime" }

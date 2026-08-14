@@ -1,7 +1,8 @@
 import { auth, signIn } from "@/auth";
 import { ConnectionClient } from "./connection-client";
 import { accord, accordDocumentHash } from "@/lib/accord";
-import { configuredProviderIds } from "@/lib/auth-config";
+import { configuredProviderIds, localCredentialsEnabled } from "@/lib/auth-config";
+import Link from "next/link";
 import { z } from "zod";
 
 export const metadata = { title: "Connect SRE" };
@@ -22,5 +23,6 @@ export default async function ConnectPage({ searchParams }: { searchParams: Prom
   const session = await auth();
   const redirectTo = `/connect?${new URLSearchParams(parsed.data).toString()}`;
   const providers = configuredProviderIds();
-  return <section className="shell section"><span className="eyebrow">FTEP connection</span><h2>Connect SRE</h2>{session?.user ? <ConnectionClient {...parsed.data} /> : <article className="panel"><h3>Sign in in your browser</h3><p className="muted">Authentication stays in this browser. No OAuth token is pasted into SRE.</p><div className="actions">{providers.map((provider) => <form key={provider} action={async () => { "use server"; await signIn(provider, { redirectTo }); }}><button className="button" type="submit">Continue with {provider.toUpperCase()}</button></form>)}</div>{providers.length === 0 && <p className="badge">OAUTH CREDENTIALS REQUIRED FOR DEPLOYMENT</p>}</article>}</section>;
+  const localAccounts = localCredentialsEnabled();
+  return <section className="shell section"><span className="eyebrow">FTEP connection</span><h2>Connect SRE</h2>{session?.user ? <ConnectionClient {...parsed.data} /> : <article className="panel"><h3>Sign in in your browser</h3><p className="muted">Authentication stays in this browser. No OAuth token is pasted into SRE.</p><div className="actions">{localAccounts && <><Link className="button" href={`/sign-in?returnTo=${encodeURIComponent(redirectTo)}`}>Sign in to local FTEP</Link><Link className="button secondary" href={`/sign-up?returnTo=${encodeURIComponent(redirectTo)}`}>Create local account</Link></>}{providers.map((provider) => <form key={provider} action={async () => { "use server"; await signIn(provider, { redirectTo }); }}><button className="button" type="submit">Continue with {provider.toUpperCase()}</button></form>)}</div>{!localAccounts && providers.length === 0 && <p className="badge">OAUTH CREDENTIALS REQUIRED FOR DEPLOYMENT</p>}</article>}</section>;
 }

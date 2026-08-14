@@ -12,6 +12,7 @@ members = [
     "crates/sre-updater",
     "crates/ftep-policy",
     "integrations/native/shipwright",
+    "integrations/native/two-ship",
     "integrations/emulator/wiiu",
     "integrations/emulator/switch",
 ]

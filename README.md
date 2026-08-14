@@ -8,7 +8,7 @@ FTEP—the FICSIT Treaty Enforcement Platform—is the optional web and policy c
 
 ## Release-candidate scope
 
-- Seven catalog titles: Ocarina of Time, Majora's Mask, A Link to the Past, Breath of the Wild, Tears of the Kingdom, Echoes of Wisdom, and Animal Crossing: New Horizons.
+- Six catalog titles: Ocarina of Time, Majora's Mask, Breath of the Wild, Tears of the Kingdom, Echoes of Wisdom, and Animal Crossing: New Horizons.
 - Shipwright is the supported native path for OoT. Cemu-compatible Wii U and generic Switch adapters are external/manual integrations and are labelled experimental or investigating according to evidence.
 - Five-screen first run, catalog library, per-game setup, process-backed sessions, exact/approximate playable events, ten offline-first achievements, a separate click-through overlay, SRE Doctor, signed leases, and a signed updater model.
 - Next.js FTEP site with user pages, a role-gated admin surface, Auth.js provider architecture, PostgreSQL migrations, parameterized API queries, CSP nonces, and GitHub release discovery.

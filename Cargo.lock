@@ -3429,6 +3429,7 @@ dependencies = [
  "sre-runtime",
  "sre-shipwright-adapter",
  "sre-switch-adapter",
+ "sre-two-ship-adapter",
  "sre-updater",
  "sre-wiiu-adapter",
  "tauri",
@@ -3472,8 +3473,10 @@ dependencies = [
 name = "sre-shipwright-adapter"
 version = "0.1.0"
 dependencies = [
+ "fs2",
  "serde",
  "serde_json",
+ "sha1",
  "sre-core",
  "sre-runtime",
  "tempfile",
@@ -3486,6 +3489,14 @@ dependencies = [
  "sre-core",
  "sre-runtime",
  "tempfile",
+]
+
+[[package]]
+name = "sre-two-ship-adapter"
+version = "0.1.0"
+dependencies = [
+ "sre-core",
+ "sre-runtime",
 ]
 
 [[package]]

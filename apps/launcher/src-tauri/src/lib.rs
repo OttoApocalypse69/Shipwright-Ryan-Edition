@@ -1,42 +1,19 @@
 mod importer;
 mod library;
 mod platform;
-mod runtime;
 mod services;
 mod storage;
 
 use serde::{Deserialize, Serialize};
-use sha1::{Digest as Sha1Digest, Sha1};
-use sha2::Sha256;
+use sha2::{Digest, Sha256};
+use sre_runtime::{DetectionStatus, RuntimeProvider};
 use std::fs::{self, File};
-use std::io::{BufReader, Read, Write};
-use std::path::Path;
+use std::io::Write;
 use tauri::Manager;
 
-const SUPPORTED_HASHES_JSON: &str = include_str!("../../../../docs/supportedHashes.json");
 const TREATY_V3_JSON: &str = include_str!("../../../../packages/treaty/FICSIT-ACCORD-0001.v3.json");
 const MINIMUM_FREE_BYTES: u64 = 5 * 1024 * 1024 * 1024;
-
-#[derive(Debug, Deserialize)]
-struct SupportedHash {
-    name: String,
-    sha1: String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct ValidationReport {
-    pub(crate) file_name: String,
-    pub(crate) file_size: u64,
-    pub(crate) readable: bool,
-    pub(crate) format_recognized: bool,
-    pub(crate) format_name: Option<String>,
-    pub(crate) version_supported: bool,
-    pub(crate) detected_version: Option<String>,
-    pub(crate) integrity_validated: bool,
-    pub(crate) import_pipeline_available: bool,
-    pub(crate) sha1: String,
-}
+pub(crate) use sre_shipwright_adapter::OotSourceValidation as ValidationReport;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -92,80 +69,19 @@ fn to_hex(bytes: &[u8]) -> String {
     output
 }
 
-fn rom_format(header: [u8; 4]) -> Option<&'static str> {
-    match header {
-        [0x80, 0x37, 0x12, 0x40] => Some("Big-endian Nintendo 64 ROM"),
-        [0x37, 0x80, 0x40, 0x12] => Some("Byte-swapped Nintendo 64 ROM"),
-        [0x40, 0x12, 0x37, 0x80] => Some("Little-endian Nintendo 64 ROM"),
-        _ => None,
-    }
-}
-
-pub(crate) fn validate_game_data_sync(path: &Path) -> Result<ValidationReport, String> {
-    let file = File::open(path)
-        .map_err(|error| format!("FICSIT-0006: Unable to read the selected file: {error}"))?;
-    let metadata = file
-        .metadata()
-        .map_err(|error| format!("FICSIT-0006: Unable to inspect the selected file: {error}"))?;
-
-    let mut reader = BufReader::with_capacity(1024 * 1024, file);
-    let mut header = [0_u8; 4];
-    reader.read_exact(&mut header).map_err(|error| {
-        format!("FICSIT-0007: The selected file is too small to be recognized: {error}")
-    })?;
-
-    let mut hasher = Sha1::new();
-    hasher.update(header);
-    let mut buffer = vec![0_u8; 1024 * 1024];
-    loop {
-        let read = reader
-            .read(&mut buffer)
-            .map_err(|error| format!("FICSIT-0006: Reading the selected file failed: {error}"))?;
-        if read == 0 {
-            break;
-        }
-        hasher.update(&buffer[..read]);
-    }
-
-    let digest = to_hex(&hasher.finalize());
-    let supported_hashes: Vec<SupportedHash> = serde_json::from_str(SUPPORTED_HASHES_JSON)
-        .map_err(|error| {
-            format!("FICSIT-0001: The supported game-data catalog is invalid: {error}")
-        })?;
-    let supported = supported_hashes
-        .iter()
-        .find(|entry| entry.sha1.eq_ignore_ascii_case(&digest));
-    let format_name = rom_format(header).map(str::to_owned);
-
-    Ok(ValidationReport {
-        file_name: path
-            .file_name()
-            .and_then(|value| value.to_str())
-            .unwrap_or("Selected game data")
-            .to_owned(),
-        file_size: metadata.len(),
-        readable: true,
-        format_recognized: format_name.is_some(),
-        format_name,
-        version_supported: supported.is_some(),
-        detected_version: supported.map(|entry| entry.name.clone()),
-        integrity_validated: supported.is_some(),
-        import_pipeline_available: supported.is_some(),
-        sha1: digest,
-    })
-}
-
 #[tauri::command]
 async fn validate_game_data(
     app: tauri::AppHandle,
     path: String,
 ) -> Result<ValidationReport, String> {
-    let mut report =
-        tauri::async_runtime::spawn_blocking(move || validate_game_data_sync(Path::new(&path)))
-            .await
-            .map_err(|error| format!("FICSIT-0001: Validation task failed: {error}"))??;
-    report.import_pipeline_available = importer::pipeline_available(&app);
-    Ok(report)
+    let adapter = importer::shipwright_adapter(&app);
+    tauri::async_runtime::spawn_blocking(move || {
+        adapter
+            .validate_oot_source(std::path::Path::new(&path))
+            .map_err(|error| format!("FICSIT-0006: {}", error.message))
+    })
+    .await
+    .map_err(|error| format!("FICSIT-0001: Validation task failed: {error}"))?
 }
 
 #[tauri::command]
@@ -289,7 +205,17 @@ fn run_preflight(app: tauri::AppHandle, request: PreflightRequest) -> Vec<Diagno
         "SRE reserves a 5 GiB minimum for import staging and updates.",
     ));
 
-    let runtime_result = runtime::find_runtime(&app);
+    let runtime_result = importer::shipwright_adapter(&app)
+        .detect()
+        .map_err(|error| format!("FICSIT-0008: {}", error.message))
+        .and_then(|detection| match detection.status {
+            DetectionStatus::Available => Ok(detection.installation),
+            DetectionStatus::Missing => Ok(None),
+            status => Err(format!(
+                "FICSIT-0008: Shipwright runtime health is {status:?}: {}",
+                detection.summary
+            )),
+        });
     let runtime = runtime_result.as_ref().ok().and_then(Option::as_ref);
     checks.push(check(
         "runtime",
@@ -430,7 +356,7 @@ fn run_preflight(app: tauri::AppHandle, request: PreflightRequest) -> Vec<Diagno
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(importer::ImportCoordinator::default())
@@ -438,6 +364,26 @@ pub fn run() {
         .setup(|app| {
             if let Some(overlay) = app.get_webview_window("overlay") {
                 overlay.set_ignore_cursor_events(true)?;
+            }
+            if let Err(error) = app
+                .state::<services::LocalServices>()
+                .start_managed_local_ftep(app.handle())
+            {
+                eprintln!("{error}");
+            }
+            if let Some(main) = app.get_webview_window("main") {
+                let app_handle = app.handle().clone();
+                main.on_window_event(move |event| {
+                    if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
+                        app_handle
+                            .state::<services::LocalServices>()
+                            .shutdown_managed_local_ftep();
+                        #[cfg(windows)]
+                        std::process::exit(0);
+                        #[cfg(not(windows))]
+                        app_handle.exit(0);
+                    }
+                });
             }
             Ok(())
         })
@@ -449,51 +395,45 @@ pub fn run() {
             storage::save_onboarding_state,
             importer::import_game_data,
             importer::cancel_game_data_import,
-            runtime::launch_game,
             library::game_catalog,
             library::load_library,
             library::register_game,
+            library::register_imported_shipwright_game,
             services::device_identity,
             services::verify_cached_lease,
             services::cache_entitlement_lease,
             services::entitlement_status,
             services::session_history,
             services::achievement_count,
+            services::ftep_web_url,
             services::begin_ftep_connection,
             services::launch_registered_game,
+            services::cancel_registered_game_launch,
+            services::stop_running_game,
+            services::active_running_game_sessions,
             services::run_sre_doctor,
             services::export_diagnostics,
             services::pop_overlay,
             services::hide_overlay
         ])
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .expect("error while running SRE");
+
+    app.run(|app_handle, event| {
+        if matches!(
+            event,
+            tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
+        ) {
+            app_handle
+                .state::<services::LocalServices>()
+                .shutdown_managed_local_ftep();
+        }
+    });
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn recognizes_all_nintendo_64_byte_orders() {
-        assert!(rom_format([0x80, 0x37, 0x12, 0x40]).is_some());
-        assert!(rom_format([0x37, 0x80, 0x40, 0x12]).is_some());
-        assert!(rom_format([0x40, 0x12, 0x37, 0x80]).is_some());
-        assert!(rom_format([0, 0, 0, 0]).is_none());
-    }
-
-    #[test]
-    fn supported_hash_catalog_is_well_formed() {
-        let entries: Vec<SupportedHash> = serde_json::from_str(SUPPORTED_HASHES_JSON).unwrap();
-        assert!(!entries.is_empty());
-        assert!(entries.iter().all(|entry| {
-            entry.sha1.len() == 40
-                && entry
-                    .sha1
-                    .chars()
-                    .all(|character| character.is_ascii_hexdigit())
-        }));
-    }
 
     #[test]
     fn treaty_metadata_matches_the_canonical_document() {

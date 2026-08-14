@@ -29,10 +29,11 @@ export async function POST(request: Request) {
     }
     await client.query("INSERT INTO ratifications(treaty_version_id,user_id,accepted_at,document_hash) VALUES($1,$2,now(),$3) ON CONFLICT(treaty_version_id,user_id) DO UPDATE SET accepted_at=EXCLUDED.accepted_at,document_hash=EXCLUDED.document_hash", [treatyVersion.rows[0].id, user.rows[0].id, accordDocumentHash]);
     await client.query("INSERT INTO entitlements(user_id,entitlement_key,state) VALUES($1,'ftep.library.nintendo','ACTIVE') ON CONFLICT(user_id,entitlement_key) DO UPDATE SET state='ACTIVE',granted_at=now()", [user.rows[0].id]);
-    await client.query("INSERT INTO audit_events(actor_user_id,action,target_type,target_id,metadata) VALUES($1,'treaty.ratify','treaty',$2,jsonb_build_object('version',$3,'deviceId',$4))", [user.rows[0].id, accord.treatyId, accord.version, parsed.data.deviceId]);
+    await client.query("INSERT INTO audit_events(actor_user_id,action,target_type,target_id,metadata) VALUES($1,'treaty.ratify','treaty',$2,jsonb_build_object('version',$3::text,'deviceId',$4::text))", [user.rows[0].id, accord.treatyId, accord.version, parsed.data.deviceId]);
     await client.query("COMMIT");
     return Response.json({ treatyId: accord.treatyId, version: accord.version, documentHash: accordDocumentHash, ratified: true });
-  } catch {
+  } catch (error) {
+    console.error("FTEP Accord ratification database error", error);
     await client.query("ROLLBACK");
     return Response.json({ error: "Accord ratification failed.", requestId: crypto.randomUUID() }, { status: 500 });
   } finally {

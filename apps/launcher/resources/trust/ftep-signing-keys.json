@@ -1,4 +1,11 @@
 {
   "schemaVersion": 1,
-  "keys": []
+  "keys": [
+    {
+      "keyId": "local-development-2026",
+      "algorithm": "Ed25519",
+      "publicKey": "M3VFp2MoIhmDBDkndNJUjcpnATqGevNyd4irUIR8QM0",
+      "developmentOnly": true
+    }
+  ]
 }

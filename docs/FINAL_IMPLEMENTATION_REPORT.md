@@ -6,7 +6,7 @@ Date: 2026-08-13
 
 The repository is now a provider-oriented SRE/FTEP monorepo. SRE owns the Windows desktop experience, local data, runtime orchestration, signed-lease verification, sessions, achievements, overlay, diagnostics, and updates. FTEP owns browser authentication, device registration, Accord/policy records, entitlement issuance, compatibility administration, release discovery, audit records, and server-only signing.
 
-The catalog contains the exact seven priority titles. Runtime providers implement one generic contract. Shipwright remains the supported OoT native path; the Wii U adapter accepts a user-selected Cemu-compatible runtime; one generic Switch adapter serves TOTK, Echoes of Wisdom, and Animal Crossing without duplicated emulator subsystems. No adapter downloads proprietary content or external runtimes.
+The catalog contains the six current priority titles. Runtime providers implement one generic contract. Shipwright and the bundled Two Ship runtime provide supported native paths for OoT and Majora's Mask; the Wii U adapter accepts a user-selected Cemu-compatible runtime; one generic Switch adapter serves TOTK, Echoes of Wisdom, and Animal Crossing without duplicated emulator subsystems. No adapter downloads proprietary game content or external runtimes.
 
 The launcher now has the eight required first-run screens, browser account connection, random local identity, canonical Accord ratification, catalog/runtime/system checks, searchable/filterable library status, per-game setup, signed authorized launches, process-backed sessions, playable detection, ten offline-first achievements, a separate click-through overlay, and sanitized SRE Doctor export.
 
@@ -19,8 +19,7 @@ Release tooling builds per-machine NSIS, portable ZIP, SHA-256 checksums, a rele
 | Game | Runtime path | Status |
 |---|---|---|
 | Ocarina of Time | Shipwright native | Supported |
-| Majora's Mask | Two Ship / generic N64 candidates | Investigating |
-| A Link to the Past | Zelda3 candidate | Investigating |
+| Majora's Mask | bundled Two Ship native runtime | Supported |
 | Breath of the Wild | external Cemu-compatible Wii U adapter | Experimental |
 | Tears of the Kingdom | external generic Switch adapter | Experimental |
 | Echoes of Wisdom | external generic Switch adapter | Investigating |

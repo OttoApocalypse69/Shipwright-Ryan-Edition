@@ -42,7 +42,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.mobygames.com https://closeup.de https://www.eruditorumpress.com https://i5.walmartimages.com https://geo-online.co.jp https://assets.nintendo.com https://static.actugaming.net; connect-src ipc: http://ipc.localhost"
     }
   },
   "bundle": {

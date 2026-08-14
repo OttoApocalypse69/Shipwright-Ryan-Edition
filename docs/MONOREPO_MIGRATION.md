@@ -367,20 +367,257 @@ keeps the real OoT implementation available throughout the next phase.
 
 ## Implementation progress
 
-The first implementation pass completed Phase A, Phase B, and one bounded
-Phase C slice:
+This is the implementation ledger. Update it with every material migration
+change and record verification evidence before treating a phase as complete.
 
-- root Cargo/pnpm workspaces and root developer commands exist;
-- `ftep-core`, the versioned catalog, and semantic catalog tests exist;
-- `ftep-runtime`, the provider registry, runtime events, and synthetic provider
-  contract tests exist;
-- runtime manifests and the third-party release-blocker registry exist;
-- `integrations/native/shipwright` now owns runtime metadata validation,
-  discovery, imported-installation verification, atomic `soh.o2r` staging, and
-  process launch;
-- the Tauri bridge now sends an explicit `GameId` and returns generic runtime
-  identity/version fields.
+### Phase A — completed
 
-Shipwright source hashing, Torch discovery/preparation, cancellation, and the
-imported-asset manifest remain in the launcher and are the next Phase C slice.
-This is an explicit seam, not a claim that Phase C is complete.
+- Root Cargo/pnpm workspaces, small root commands, metadata validation, and
+  the third-party evidence registry are in place.
+- The original Shipwright source/build roots remain in place; no upstream
+  relocation or history rewriting occurred.
+
+### Phase B — completed
+
+- `sre-core` supplies validated IDs, catalog models, and semantic catalog
+  checks.
+- `sre-runtime` supplies provider contracts, registry resolution, structured
+  errors/events, and deterministic synthetic-provider tests.
+
+### Phase C — completed
+
+- `integrations/native/shipwright` owns Shipwright executable/resource
+  discovery, metadata/version validation, supported OoT source hashes, N64
+  byte-order recognition, Torch discovery/preparation/cancellation, imported
+  asset manifests, verification, atomic resource staging, and guarded launch.
+- The Tauri launcher supplies only app/resource roots and UI command plumbing;
+  Shipwright filenames, hashes, archive names, and extractor paths no longer
+  appear in the launcher composition root.
+- The durable import operation remains a cancellable adapter API rather than
+  the generic `RuntimeProvider::prepare` method because it must atomically
+  promote a desktop manifest.
+
+### Phase D — completed
+
+- The catalog-backed library, synthetic runtime fixtures, diagnostics, and
+  session model share provider-neutral contracts.
+- Synthetic fixtures remain rejected by every authorized launch path.
+
+### Phase E — completed for the supported path
+
+- Installations, session persistence, explicit runtime selection, and resolver
+  health are implemented.
+- Native OoT import now creates or updates the ready Shipwright library
+  installation, so the documented **Set up → Play** path reaches the same
+  provider/session service as external runtimes. The obsolete single-title
+  launcher command was removed.
+- A Link to the Past remains excluded from the active catalog until independent
+  source, adapter, and redistribution evidence exists.
+
+### Phases F–H — completed as external/manual integrations
+
+- The Cemu-compatible Wii U adapter and generic Switch adapter validate
+  explicit user-selected sources/runtimes, launch them with direct argument
+  arrays, persist sessions, and label playable detection as approximate.
+- SRE never downloads runtimes, console material, firmware, keys, or game
+  data. Compatibility is limited to the evidence-based labels in the catalog.
+
+### Phase I — completed in local source; deployment is operator-gated
+
+- The Next.js FTEP application, Auth.js configuration, PostgreSQL migration,
+  device registration, Accord ratification, signed lease issuance, role-gated
+  compatibility administration, status/download pages, and audit writes are
+  implemented and covered by local tests.
+- A live sign-in → device → ratification → lease round trip still requires an
+  actual PostgreSQL deployment, OAuth/OIDC client, HTTPS origin, and protected
+  Ed25519 signing key. No placeholder credentials or fabricated success path
+  may substitute for them.
+
+### Phase J — completed in local source; publication is operator-gated
+
+- Signed release-manifest verification, installer/portable packaging scripts,
+  release workflow, updater restrictions, diagnostics export, channels, and
+  GitHub Release discovery are implemented.
+- Public publication remains prohibited until the third-party registry no
+  longer contains blocked redistribution evidence and protected production
+  release/lease keys plus repository release permissions are configured.
+
+### Verification status — 2026-08-14
+
+- `cargo test --workspace --locked`: passed after loading the Windows x64 MSVC
+  developer environment.
+- `cargo clippy --workspace --all-targets --locked -- -D warnings`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `pnpm --filter @sre/launcher check`: passed (four frontend tests plus
+  TypeScript/Vite production build).
+- `pnpm check`: passed end-to-end (workspace lint, Rust formatting and strict
+  Clippy, launcher/web tests, metadata validation, the full Rust test suite,
+  Next.js production build, and workspace Cargo build).
+- `pnpm audit --prod --audit-level high`: passed with no known
+  vulnerabilities.
+- `cargo-audit` v0.22.2 was installed locally and `cargo audit` completed
+  without vulnerability advisories. It reports 17 non-failing maintenance
+  warnings in the Tauri cross-platform GTK/proc-macro dependency closure;
+  these remain dependency-maintenance work rather than a Windows release
+  vulnerability claim.
+- Native Shipwright setup: the Windows x64 extractor (`soh-torch.exe`),
+  runtime (`soh.exe`), and `soh.o2r` resource archive were built from the
+  preserved source tree and staged into the launcher resources. The Tauri
+  development launcher then opened as a responsive `SRE — Super Runtime
+  Environment` desktop window; SRE Doctor recognized the selected runtime.
+- `database/migrations/0001_ftep_core.sql`: applied successfully to a
+  disposable PostgreSQL 17 instance with `ON_ERROR_STOP=1`; all 27 public
+  tables were created, including the device, lease, session, compatibility,
+  and audit tables. The container was removed after verification.
+- `sre doctor --json`: passed and emitted a sanitized local report.
+- Browser verification against the local FTEP dev server: `/`,
+  `/compatibility`, invalid `/connect`, and anonymous `/admin` passed. The
+  latter redirected to `/dashboard`; the invalid connection request was
+  rejected before OAuth/database access. `127.0.0.1` was added to
+  `allowedDevOrigins` after the check exposed development-only HMR warnings.
+
+### Local FTEP account and lease remediation — 2026-08-14
+
+- `database/migrations/0002_local_credentials.sql` adds the nullable
+  `users.password_hash` column needed only for explicit development-only local
+  accounts; deployed FTEP remains OAuth/OIDC-only.
+- Local account sign-up/sign-in now validates input, stores salted scrypt
+  verifiers, uses non-enumerating sign-in failures, and returns the user to the
+  state-bound SRE `/connect` request after authentication.
+- A local PostgreSQL 17 service named `ftep-local-postgres` is running with
+  migrations `0001` and `0002` applied. The ignored `apps/web/.env.local`
+  holds its development signing key and database URL.
+- The SRE trust set contains the corresponding public key marked
+  `developmentOnly`; debug builds accept it and release builds reject it.
+  The library sidebar now exposes **Connect / refresh FTEP** for users who
+  completed first-run in offline mode.
+- Live browser verification completed: sign-up persisted a scrypt verifier and
+  audit record; bad-password sign-in displayed a generic error; good-password
+  sign-in reached the dashboard; device registration, Accord ratification,
+  active entitlement creation, and a non-empty unexpired Ed25519 lease all
+  completed against the local database. The direct browser check intentionally
+  used a non-listening callback port, so its final `ERR_CONNECTION_REFUSED`
+  confirms only that the actual Tauri loopback listener must be initiated from
+  **Connect / refresh FTEP**.
+- The Tauri opener capability now scopes browser handoffs to HTTPS FTEP
+  addresses plus loopback-only local development origins. A live SRE click
+  progressed to **Waiting for FTEP...** and opened the system browser,
+  replacing the previous blocked-local-URL failure.
+- In a development build, SRE now starts its own local FTEP child process on
+  an unused `127.0.0.1` port at launcher startup, exposes that exact URL to
+  desktop connection/dashboard actions, health-checks it before use, and
+  terminates only that child process tree when the main SRE window closes.
+  Docker/PostgreSQL and all unrelated processes remain untouched; this
+  prevents local FTEP from taking port 3000 or remaining behind after the
+  launcher closes.
+- `START SRE.exe` is a terminal-free, source-checkout helper placed at the
+  project root for one-click local startup. It starts and later stops only its
+  own Vite process tree; the SRE process continues to own the temporary FTEP
+  child and stops it when the main window closes. Docker/PostgreSQL and
+  unrelated processes remain untouched.
+- OoT setup now stages Shipwright's non-ROM extractor assets beside
+  `soh-torch.exe` and runs Torch from that directory. This fixes the missing
+  `assets/`/O2R generation failure without bundling, copying, or altering a
+  user's game data. Achievement overlays now display for 15 seconds and return
+  to polling the queue rather than remaining visible indefinitely.
+- The Shipwright runtime executable and `soh.o2r` are now staged directly in
+  the imported OoT installation before launch. The executable therefore finds
+  the generated `oot.o2r` beside itself instead of looking in the launcher
+  resource directory and incorrectly reporting missing extractor assets.
+- Shipwright's runtime-owned `assets/` directory is also staged atomically
+  beside the imported archive and version-marked for reuse. This satisfies the
+  runtime's mandatory first-run asset check without copying or modifying the
+  user's ROM; only the generated archive and application-owned runtime files
+  live in the managed installation.
+- The root `START SRE.exe` helper now refuses a second startup while its
+  loopback frontend is already active, preventing duplicate launcher windows
+  and duplicate temporary local-service processes.
+- On Windows, the managed development FTEP service is contained in a
+  kill-on-close job object. A forced SRE termination now also ends its pnpm,
+  Next.js, and port-owning descendants, so a future launcher startup cannot be
+  blocked by a stale `.next` development lock.
+- Local-game launch work, including any first-run Shipwright runtime staging,
+  now runs on a blocking worker rather than the Tauri command/UI thread. The
+  library keeps rendering a visible preparation state while the game starts;
+  `START SRE.exe` also starts the already-built launcher binary directly
+  instead of invoking Cargo at every startup.
+- Shipwright now version-marks the runtime files it stages beside imported
+  OoT assets and reuses a verified matching copy on later launches. First-run
+  staging is cancellation-aware; the library exposes **Cancel launch** while
+  preparation is in progress and **Stop game** only for a process that this
+  current SRE instance started. The catalog also carries HTTPS-only remote banner
+  references, rendered with a local color/title fallback rather than bundling
+  third-party artwork into the repository or a user's game installation.
+- The live library now polls only while SRE owns a running game process. Closing
+  a game normally (including Alt+F4) is detected by the runtime monitor and the
+  UI updates back from **Stop game** to **Play** within half a second.
+- Every configured game card now shows its own persisted total playtime,
+  calculated from completed sessions for that game rather than the library-wide
+  total alone.
+- `integrations/native/two-ship` now owns the managed Majora's Mask native-port
+  adapter. The reviewed official 2 Ship 2 Harkinian 5.0.0 Windows bundle is
+  packaged as an SRE resource, launched with the original user-selected ROM
+  path, and tracked with the same owned-process/session lifecycle as OoT. SRE
+  neither copies nor retains the ROM; the upstream runtime validates it and
+  generates its own archive on first launch. The runtime manifest records the
+  upstream project, CC0-1.0 distribution basis, version, source URL, and SHA-256
+  before allowing bundled distribution.
+- The managed Two Ship bundle is staged once from the packaged read-only
+  resources into SRE's writable app-data runtime directory before launch. This
+  satisfies Two Ship's own first-run write checks without copying the selected
+  ROM, while the library keeps the original user-owned ROM path. A five-second
+  UI stop-request timeout also clears a stale **Stopping...** state and refreshes
+  the owned-process list instead of leaving the card disabled indefinitely.
+- The library now requires an actual stop-request session ID before rendering a
+  card as **Stopping...**. This prevents a newly configured game with no session
+  history from comparing two absent values and having its initial **Play** button
+  incorrectly disabled.
+- A Link to the Past and its Zelda3 catalog candidate were removed from the
+  active library, catalog contract test, and catalog documentation at the user's
+  request. Existing user files are untouched; SRE no longer presents a setup
+  card for that title.
+- Cemu 2.6 from the official `cemu-project/Cemu` Windows release is now
+  installed as a managed local runtime for Breath of the Wild. SRE records the
+  release source and SHA-256, automatically selects that executable during BotW
+  setup, and still requires a user-supplied Wii U game directory. It does not
+  acquire or store games, console keys, or firmware; Switch runtimes remain
+  manual because their required console material cannot be safely managed by
+  SRE.
+- The Cemu-compatible Wii U adapter now accepts either a dumped `code/*.rpx`
+  installation or a user-selected `.wux` image and passes that exact path to
+  Cemu. SRE does not decrypt, unpack, or modify the selected image.
+- BotW setup now uses an explicit Wii U picker that displays `.wux`, `.wud`, and
+  `.rpx` files, avoiding an ambiguous generic file picker that could hide the
+  user's selected Wii U image.
+- The Cemu-compatible Wii U adapter now accepts `.wud` disc images as well as
+  `.wux` images and RPX title directories, with validation and setup guidance
+  kept in sync.
+- BotW setup now also accepts Cemu's single-file `.wua` archive format in both
+  its picker and validation flow.
+- TotK and the other Switch catalog entries now have a managed Suyu 0.0.3
+  runtime. SRE stages it to the user's app-data directory and only accepts
+  user-provided Switch game images; it does not provide or retrieve keys,
+  firmware, or games.
+- The BotW Wii U/Cemu catalog path is promoted to `SUPPORTED` after successful
+  user verification with a legally supplied Wii U image and local runtime setup.
+- The bundled-catalog verification now permits that verified external BotW path
+  while retaining the `SUPPORTED` guard for all remaining unverified entries.
+- Removed the bundled Suyu runtime. Switch entries, including TotK, now use a
+  Ryujinx-ready manual executable selection until a verifiable official
+  Ryujinx release channel is available for bundling.
+- With the user's explicit authorization, bundled Ryujinx 1.3.3 replaces that
+  manual selection. The downloaded Windows archive SHA-256 is
+  `42B48CE6B3DADDED68591B1B2B7D8D727E8436A18AB6363610042FA383BE3992`.
+- Replaced the elevation-requesting download with the user's supplied
+  Ryubing/Ryujinx 1.3.3 archive. Its SHA-256 is
+  `BAA93F48B012EEFECA339A78A39844599CCD194C109093F354A4B9D1E03A056E`.
+- Existing Switch library entries now resolve the managed Ryujinx executable at
+  launch time, preventing stale stored paths from continuing to start the
+  retired elevation-requesting runtime.
+- TotK's managed Ryujinx path is promoted to `SUPPORTED` following successful
+  user verification with their supplied game, keys, and firmware.
+- Echoes of Wisdom and Animal Crossing: New Horizons use the same managed
+  Ryujinx Switch runtime as TotK; their setup screens therefore require only
+  the user's game image, with no separate emulator executable selection.
+- Echoes of Wisdom is promoted to `SUPPORTED` after user verification of its
+  managed Ryujinx path.

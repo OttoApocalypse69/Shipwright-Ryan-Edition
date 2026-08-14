@@ -55,8 +55,8 @@ pub struct RuntimeCandidate {
     pub compatibility: CompatibilityState,
 }
 
-/// Original, non-infringing presentation metadata. SRE never downloads or
-/// embeds publisher artwork from this field.
+/// Presentation metadata. A banner can reference publisher or retailer-hosted
+/// artwork without packaging that artwork in SRE.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CoverMetadata {
@@ -64,6 +64,8 @@ pub struct CoverMetadata {
     pub title_mark: String,
     pub accent_color: String,
     pub background_color: String,
+    #[serde(default)]
+    pub banner_url: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -171,6 +173,14 @@ fn validate_game(game: &GameDefinition) -> Result<(), CatalogError> {
     {
         return Err(CatalogError::new(format!(
             "game {} has invalid or non-original cover metadata",
+            game.id
+        )));
+    }
+    if let Some(banner_url) = &game.cover.banner_url
+        && (!banner_url.starts_with("https://") || banner_url.contains(char::is_whitespace))
+    {
+        return Err(CatalogError::new(format!(
+            "game {} has an invalid banner URL",
             game.id
         )));
     }

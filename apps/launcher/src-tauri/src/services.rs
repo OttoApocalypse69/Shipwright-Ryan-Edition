@@ -15,18 +15,416 @@ use sre_runtime::{
 use sre_switch_adapter::{ExternalSwitchImplementation, SwitchRuntimeProvider};
 use sre_wiiu_adapter::WiiURuntimeAdapter;
 use std::collections::{BTreeMap, BTreeSet};
+use std::fs::File;
 use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::process::{Child, Command, Stdio};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
+};
 use std::time::{Duration, Instant};
 use tauri::Manager;
 use url::Url;
 
-#[derive(Clone, Default)]
+#[cfg(windows)]
+use std::os::windows::io::AsRawHandle;
+#[cfg(windows)]
+use windows::{
+    Win32::{
+        Foundation::{CloseHandle, HANDLE},
+        System::JobObjects::{
+            AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+            JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation,
+            SetInformationJobObject,
+        },
+    },
+    core::PCWSTR,
+};
+
+const LOCAL_FTEP_STARTUP_TIMEOUT: Duration = Duration::from_secs(45);
+#[cfg(windows)]
+const LOCAL_FTEP_PACKAGE_MANAGER: &str = "pnpm.cmd";
+#[cfg(not(windows))]
+const LOCAL_FTEP_PACKAGE_MANAGER: &str = "pnpm";
+
+#[derive(Debug)]
+struct ManagedLocalFtep {
+    child: Child,
+    web_url: String,
+    // A Windows job object owns pnpm and every descendant it starts. If SRE is
+    // force-closed, Windows closes this handle and ends that complete local
+    // service tree instead of leaving Next.js and its port behind.
+    #[cfg(windows)]
+    _job: LocalFtepJob,
+}
+
+#[cfg(windows)]
+#[derive(Debug)]
+struct LocalFtepJob(isize);
+
+#[cfg(windows)]
+impl Drop for LocalFtepJob {
+    fn drop(&mut self) {
+        // KILL_ON_JOB_CLOSE is configured before the handle is retained.
+        unsafe {
+            let _ = CloseHandle(HANDLE(self.0 as *mut _));
+        }
+    }
+}
+
+#[derive(Clone)]
 pub(crate) struct LocalServices {
     pub(crate) overlay: OverlayQueue,
     session_write: Arc<Mutex<()>>,
+    managed_local_ftep: Arc<Mutex<Option<ManagedLocalFtep>>>,
+    active_launch_cancellation: Arc<Mutex<Option<Arc<AtomicBool>>>>,
+    active_game_processes: Arc<Mutex<BTreeMap<String, u32>>>,
+}
+
+impl Default for LocalServices {
+    fn default() -> Self {
+        Self {
+            overlay: OverlayQueue::default(),
+            session_write: Arc::new(Mutex::new(())),
+            managed_local_ftep: Arc::new(Mutex::new(None)),
+            active_launch_cancellation: Arc::new(Mutex::new(None)),
+            active_game_processes: Arc::new(Mutex::new(BTreeMap::new())),
+        }
+    }
+}
+
+impl LocalServices {
+    fn begin_game_launch(&self) -> Result<Arc<AtomicBool>, String> {
+        let mut active = self.active_launch_cancellation.lock().map_err(|_| {
+            "FICSIT-0001: Game launch cancellation state is unavailable.".to_owned()
+        })?;
+        if active.is_some() {
+            return Err("FICSIT-0001: Another game is already being prepared.".to_owned());
+        }
+        let cancellation = Arc::new(AtomicBool::new(false));
+        *active = Some(cancellation.clone());
+        Ok(cancellation)
+    }
+
+    fn finish_game_launch(&self, cancellation: &Arc<AtomicBool>) {
+        if let Ok(mut active) = self.active_launch_cancellation.lock()
+            && active
+                .as_ref()
+                .is_some_and(|current| Arc::ptr_eq(current, cancellation))
+        {
+            *active = None;
+        }
+    }
+
+    fn cancel_game_launch(&self) -> Result<(), String> {
+        let active = self.active_launch_cancellation.lock().map_err(|_| {
+            "FICSIT-0001: Game launch cancellation state is unavailable.".to_owned()
+        })?;
+        let cancellation = active
+            .as_ref()
+            .ok_or_else(|| "FICSIT-0001: No game launch is currently being prepared.".to_owned())?;
+        cancellation.store(true, Ordering::SeqCst);
+        Ok(())
+    }
+
+    fn track_game_process(&self, session_id: &str, process_id: u32) {
+        if let Ok(mut active) = self.active_game_processes.lock() {
+            active.insert(session_id.to_owned(), process_id);
+        }
+    }
+
+    fn release_game_process(&self, session_id: &str) {
+        if let Ok(mut active) = self.active_game_processes.lock() {
+            active.remove(session_id);
+        }
+    }
+
+    fn active_game_session_ids(&self) -> Result<Vec<String>, String> {
+        Ok(self
+            .active_game_processes
+            .lock()
+            .map_err(|_| "FICSIT-0001: Active game process state is unavailable.".to_owned())?
+            .keys()
+            .cloned()
+            .collect())
+    }
+
+    fn stop_game_process(&self, session_id: &str) -> Result<(), String> {
+        let process_id = self
+            .active_game_processes
+            .lock()
+            .map_err(|_| "FICSIT-0001: Active game process state is unavailable.".to_owned())?
+            .get(session_id)
+            .copied()
+            .ok_or_else(|| {
+                "FICSIT-0001: This launcher is not currently managing that game process.".to_owned()
+            })?;
+        terminate_owned_game_process(process_id)?;
+        self.release_game_process(session_id);
+        Ok(())
+    }
+
+    pub(crate) fn start_managed_local_ftep(&self, app: &tauri::AppHandle) -> Result<(), String> {
+        if !cfg!(debug_assertions) {
+            return Ok(());
+        }
+
+        let mut managed = self
+            .managed_local_ftep
+            .lock()
+            .map_err(|_| "FICSIT-0002: Local FTEP service state is unavailable.".to_owned())?;
+        if let Some(existing) = managed.as_mut() {
+            if existing
+                .child
+                .try_wait()
+                .map_err(|error| format!("FICSIT-0002: Cannot inspect local FTEP: {error}"))?
+                .is_none()
+            {
+                return Ok(());
+            }
+            *managed = None;
+        }
+
+        let port = reserve_loopback_port()?;
+        let web_url = format!("http://127.0.0.1:{port}");
+        let workspace = local_workspace_root()?;
+        let log_path = storage::app_data_dir(app)?.join("local-ftep.log");
+        let log_file = File::create(&log_path)
+            .map_err(|error| format!("FICSIT-0002: Cannot create local FTEP log file: {error}"))?;
+        let stdout = log_file
+            .try_clone()
+            .map_err(|error| format!("FICSIT-0002: Cannot prepare local FTEP log file: {error}"))?;
+        let port_text = port.to_string();
+        let mut child = Command::new(LOCAL_FTEP_PACKAGE_MANAGER)
+            .args([
+                "--filter",
+                "@ftep/web",
+                "dev",
+                "--hostname",
+                "127.0.0.1",
+                "--port",
+                &port_text,
+            ])
+            .current_dir(workspace)
+            .env("NEXT_PUBLIC_FTEP_BASE_URL", &web_url)
+            .stdout(Stdio::from(stdout))
+            .stderr(Stdio::from(log_file))
+            .spawn()
+            .map_err(|error| {
+                format!(
+                    "FICSIT-0002: Cannot start local FTEP. Install pnpm and see {}: {error}",
+                    log_path.display()
+                )
+            })?;
+
+        #[cfg(windows)]
+        let job = match contain_local_ftep_process(&child) {
+            Ok(job) => job,
+            Err(error) => {
+                stop_local_ftep_process(&mut child);
+                return Err(error);
+            }
+        };
+
+        if let Err(error) = wait_for_local_ftep(&mut child, port, &log_path) {
+            stop_local_ftep_process(&mut child);
+            return Err(error);
+        }
+
+        *managed = Some(ManagedLocalFtep {
+            child,
+            web_url,
+            #[cfg(windows)]
+            _job: job,
+        });
+        Ok(())
+    }
+
+    fn managed_local_ftep_url(&self) -> Result<String, String> {
+        if !cfg!(debug_assertions) {
+            return Err(
+                "FICSIT-0002: This release build requires a configured HTTPS FTEP service."
+                    .to_owned(),
+            );
+        }
+
+        let mut managed = self
+            .managed_local_ftep
+            .lock()
+            .map_err(|_| "FICSIT-0002: Local FTEP service state is unavailable.".to_owned())?;
+        let Some(local_ftep) = managed.as_mut() else {
+            return Err(
+                "FICSIT-0002: Local FTEP is not running. Restart SRE to start it automatically."
+                    .to_owned(),
+            );
+        };
+        let finished = local_ftep
+            .child
+            .try_wait()
+            .map_err(|error| format!("FICSIT-0002: Cannot inspect local FTEP: {error}"))?
+            .is_some();
+        if finished {
+            *managed = None;
+            return Err(
+                "FICSIT-0002: Local FTEP stopped unexpectedly. Restart SRE to start it again."
+                    .to_owned(),
+            );
+        }
+        Ok(local_ftep.web_url.clone())
+    }
+
+    pub(crate) fn shutdown_managed_local_ftep(&self) {
+        let child = self
+            .managed_local_ftep
+            .lock()
+            .ok()
+            .and_then(|mut managed| managed.take().map(|service| service.child));
+        if let Some(mut child) = child {
+            stop_local_ftep_process(&mut child);
+        }
+    }
+}
+
+fn local_workspace_root() -> Result<PathBuf, String> {
+    let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    if workspace.join("apps/web/package.json").is_file() {
+        Ok(workspace)
+    } else {
+        Err(
+            "FICSIT-0002: Local FTEP source is unavailable. Run the SRE development launcher from its workspace."
+                .to_owned(),
+        )
+    }
+}
+
+fn reserve_loopback_port() -> Result<u16, String> {
+    TcpListener::bind(("127.0.0.1", 0))
+        .and_then(|listener| listener.local_addr())
+        .map(|address| address.port())
+        .map_err(|error| format!("FICSIT-0002: Cannot reserve a local FTEP port: {error}"))
+}
+
+fn wait_for_local_ftep(child: &mut Child, port: u16, log_path: &Path) -> Result<(), String> {
+    let deadline = Instant::now() + LOCAL_FTEP_STARTUP_TIMEOUT;
+    while Instant::now() < deadline {
+        if child
+            .try_wait()
+            .map_err(|error| format!("FICSIT-0002: Cannot inspect local FTEP: {error}"))?
+            .is_some()
+        {
+            return Err(format!(
+                "FICSIT-0002: Local FTEP stopped during startup. See {}.",
+                log_path.display()
+            ));
+        }
+        if local_ftep_is_healthy(port) {
+            return Ok(());
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+    Err(format!(
+        "FICSIT-0002: Local FTEP did not become ready. See {}.",
+        log_path.display()
+    ))
+}
+
+fn local_ftep_is_healthy(port: u16) -> bool {
+    let address = SocketAddr::from(([127, 0, 0, 1], port));
+    let Ok(mut stream) = TcpStream::connect_timeout(&address, Duration::from_millis(500)) else {
+        return false;
+    };
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
+    if stream
+        .write_all(b"GET /sign-in HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n")
+        .is_err()
+    {
+        return false;
+    }
+    let mut response = [0_u8; 64];
+    stream
+        .read(&mut response)
+        .map(|size| String::from_utf8_lossy(&response[..size]).starts_with("HTTP/1.1 200"))
+        .unwrap_or(false)
+}
+
+fn stop_local_ftep_process(child: &mut Child) {
+    if child.try_wait().ok().flatten().is_some() {
+        return;
+    }
+    #[cfg(windows)]
+    {
+        let _ = Command::new("taskkill")
+            .args(["/PID", &child.id().to_string(), "/T", "/F"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = child.kill();
+    }
+    let _ = child.wait();
+}
+
+/// Ends only a process id recorded when SRE launched a game. The caller must
+/// look that id up from `active_game_processes`; this helper never scans for
+/// or guesses at unrelated applications.
+#[cfg(windows)]
+fn terminate_owned_game_process(process_id: u32) -> Result<(), String> {
+    let output = Command::new("taskkill")
+        .args(["/PID", &process_id.to_string(), "/T", "/F"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .map_err(|error| format!("FICSIT-0001: Could not stop the running game: {error}"))?;
+    if output.status.success() {
+        return Ok(());
+    }
+    let details = String::from_utf8_lossy(&output.stderr).trim().to_owned();
+    Err(format!(
+        "FICSIT-0001: Windows could not stop the running game process{details_suffix}.",
+        details_suffix = if details.is_empty() {
+            String::new()
+        } else {
+            format!(" ({details})")
+        }
+    ))
+}
+
+#[cfg(not(windows))]
+fn terminate_owned_game_process(_process_id: u32) -> Result<(), String> {
+    Err("FICSIT-0001: Stopping a running game is currently supported on Windows only.".to_owned())
+}
+
+#[cfg(windows)]
+fn contain_local_ftep_process(child: &Child) -> Result<LocalFtepJob, String> {
+    let job = unsafe { CreateJobObjectW(None, PCWSTR::null()) }.map_err(|error| {
+        format!("FICSIT-0002: Cannot create the local FTEP process job: {error}")
+    })?;
+    let mut limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+    limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    let result = unsafe {
+        SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            (&limits as *const JOBOBJECT_EXTENDED_LIMIT_INFORMATION).cast(),
+            std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+        )
+        .and_then(|_| AssignProcessToJobObject(job, HANDLE(child.as_raw_handle() as *mut _)))
+    };
+    if let Err(error) = result {
+        unsafe {
+            let _ = CloseHandle(job);
+        }
+        return Err(format!(
+            "FICSIT-0002: Cannot contain the local FTEP process tree: {error}"
+        ));
+    }
+    Ok(LocalFtepJob(job.0 as isize))
 }
 
 #[derive(Debug, Serialize)]
@@ -71,6 +469,8 @@ struct TrustedKey {
     key_id: String,
     algorithm: String,
     public_key: String,
+    #[serde(default)]
+    development_only: bool,
 }
 
 fn decode_public_key(value: &str) -> Result<VerifyingKey, String> {
@@ -113,7 +513,11 @@ fn load_trusted_key(app: &tauri::AppHandle, key_id: &str) -> Result<VerifyingKey
                 "FICSIT-0005: The bundled FTEP trust set version is unsupported.".to_owned(),
             );
         }
-        if let Some(key) = keyset.keys.iter().find(|key| key.key_id == key_id) {
+        if let Some(key) = keyset
+            .keys
+            .iter()
+            .find(|key| key.key_id == key_id && (!key.development_only || cfg!(debug_assertions)))
+        {
             if key.algorithm != "Ed25519" {
                 return Err("FICSIT-0005: The FTEP signing algorithm is unsupported.".to_owned());
             }
@@ -232,7 +636,12 @@ pub(crate) fn achievement_count(
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct BeginConnectionRequest {
-    web_base_url: String,
+    web_base_url: Option<String>,
+}
+
+#[tauri::command]
+pub(crate) fn ftep_web_url(services: tauri::State<'_, LocalServices>) -> Result<String, String> {
+    services.managed_local_ftep_url()
 }
 
 #[tauri::command]
@@ -256,7 +665,11 @@ pub(crate) fn begin_ftep_connection(
     let treaty = crate::treaty_metadata()?;
     let state = uuid::Uuid::new_v4().to_string();
     let callback = format!("http://127.0.0.1:{port}/callback");
-    let mut url = Url::parse(&request.web_base_url)
+    let web_base_url = match request.web_base_url {
+        Some(web_base_url) => web_base_url,
+        None => services.managed_local_ftep_url()?,
+    };
+    let mut url = Url::parse(&web_base_url)
         .map_err(|_| "FICSIT-0002: The configured FTEP web URL is invalid.".to_owned())?;
     let local_development =
         url.scheme() == "http" && matches!(url.host_str(), Some("127.0.0.1") | Some("localhost"));
@@ -425,11 +838,61 @@ pub(crate) struct LaunchRegisteredRequest {
     installation_id: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StopRunningGameRequest {
+    session_id: String,
+}
+
 #[tauri::command]
-pub(crate) fn launch_registered_game(
+pub(crate) fn cancel_registered_game_launch(
+    services: tauri::State<'_, LocalServices>,
+) -> Result<(), String> {
+    services.cancel_game_launch()
+}
+
+#[tauri::command]
+pub(crate) fn stop_running_game(
+    services: tauri::State<'_, LocalServices>,
+    request: StopRunningGameRequest,
+) -> Result<(), String> {
+    services.stop_game_process(&request.session_id)
+}
+
+#[tauri::command]
+pub(crate) fn active_running_game_sessions(
+    services: tauri::State<'_, LocalServices>,
+) -> Result<Vec<String>, String> {
+    services.active_game_session_ids()
+}
+
+#[tauri::command]
+pub(crate) async fn launch_registered_game(
     app: tauri::AppHandle,
     services: tauri::State<'_, LocalServices>,
     request: LaunchRegisteredRequest,
+) -> Result<RuntimeSession, String> {
+    let services = services.inner().clone();
+    let cancellation = services.begin_game_launch()?;
+    let worker_services = services.clone();
+    let worker_cancellation = cancellation.clone();
+    let result = match tauri::async_runtime::spawn_blocking(move || {
+        launch_registered_game_blocking(app, worker_services, request, &worker_cancellation)
+    })
+    .await
+    {
+        Ok(result) => result,
+        Err(error) => Err(format!("FICSIT-0001: Game launch task failed: {error}")),
+    };
+    services.finish_game_launch(&cancellation);
+    result
+}
+
+fn launch_registered_game_blocking(
+    app: tauri::AppHandle,
+    services: LocalServices,
+    request: LaunchRegisteredRequest,
+    cancellation: &AtomicBool,
 ) -> Result<RuntimeSession, String> {
     let data_dir = storage::app_data_dir(&app)?;
     let state = LibraryStore::new(data_dir.join("library.json"))
@@ -442,42 +905,71 @@ pub(crate) fn launch_registered_game(
         .clone();
     let account_id = authorized_account(&app, installation.game_id.as_str(), "nintendo")?;
 
-    let provider: Arc<dyn RuntimeProvider> = match installation.runtime_id.as_str() {
-        "cemu-compatible" => Arc::new(WiiURuntimeAdapter::new(
-            installation.runtime_executable.clone(),
-        )),
-        "switch-runtime" => Arc::new(SwitchRuntimeProvider::new(
-            installation.runtime_executable.clone().map(|path| {
-                ExternalSwitchImplementation::manually_configured(
-                    "user-selected",
-                    "User-selected Switch runtime",
-                    path,
-                )
-            }),
-        )),
-        _ => {
-            return Err(
-                "FICSIT-0008: Use the native guided launch path for this runtime.".to_owned(),
-            );
-        }
-    };
+    if cancellation.load(Ordering::SeqCst) {
+        return Err("FICSIT-0001: Game launch was cancelled.".to_owned());
+    }
     let mut values = BTreeMap::new();
     values.insert("device_id".to_owned(), local_device_id(&app)?);
-    let session = provider
-        .launch(LaunchRequest {
-            session_id: uuid::Uuid::new_v4().to_string(),
-            installation: GameInstallation {
-                installation_id: installation.installation_id,
-                game_id: installation.game_id,
-                variant_id: installation.variant_id,
-                runtime_id: installation.runtime_id,
-                root: installation.game_source,
-                synthetic_fixture: false,
-            },
-            config: RuntimeConfig { values },
-            mode: LaunchMode::Authorized,
-        })
-        .map_err(|error| error.to_string())?;
+    let launch_request = LaunchRequest {
+        session_id: uuid::Uuid::new_v4().to_string(),
+        installation: GameInstallation {
+            installation_id: installation.installation_id,
+            game_id: installation.game_id,
+            variant_id: installation.variant_id,
+            runtime_id: installation.runtime_id.clone(),
+            root: installation.game_source,
+            synthetic_fixture: false,
+        },
+        config: RuntimeConfig { values },
+        mode: LaunchMode::Authorized,
+    };
+    let (provider, session): (Arc<dyn RuntimeProvider>, RuntimeSession) =
+        match installation.runtime_id.as_str() {
+            "shipwright" => {
+                let shipwright = Arc::new(crate::importer::shipwright_adapter(&app));
+                let session = shipwright
+                    .launch_cancellable(launch_request, cancellation)
+                    .map_err(|error| error.to_string())?;
+                (shipwright, session)
+            }
+            "two-ship" => {
+                let two_ship = Arc::new(crate::importer::two_ship_adapter(&app)?);
+                let session = two_ship
+                    .launch(launch_request)
+                    .map_err(|error| error.to_string())?;
+                (two_ship, session)
+            }
+            "cemu-compatible" => {
+                let provider = Arc::new(WiiURuntimeAdapter::new(
+                    installation.runtime_executable.clone(),
+                ));
+                let session = provider
+                    .launch(launch_request)
+                    .map_err(|error| error.to_string())?;
+                (provider, session)
+            }
+            "switch-runtime" => {
+                let provider = Arc::new(SwitchRuntimeProvider::new(
+                    Some(ExternalSwitchImplementation::manually_configured(
+                        "managed-ryujinx",
+                        "Managed Ryujinx runtime",
+                        crate::importer::managed_ryujinx_executable(&app)?,
+                    )),
+                ));
+                let session = provider
+                    .launch(launch_request)
+                    .map_err(|error| error.to_string())?;
+                (provider, session)
+            }
+            _ => return Err("FICSIT-0008: This runtime has no launch adapter.".to_owned()),
+        };
+
+    if cancellation.load(Ordering::SeqCst) {
+        if let Some(process_id) = session.process_id {
+            let _ = terminate_owned_game_process(process_id);
+        }
+        return Err("FICSIT-0001: Game launch was cancelled.".to_owned());
+    }
 
     let store = SessionStore::new(data_dir.join("sessions.json"));
     {
@@ -488,6 +980,9 @@ pub(crate) fn launch_registered_game(
         store
             .upsert(session.clone())
             .map_err(|error| error.to_string())?;
+    }
+    if let Some(process_id) = session.process_id {
+        services.track_game_process(&session.session_id, process_id);
     }
     if let Ok(mut engine) = AchievementEngine::open(
         &data_dir.join("achievements.sqlite3"),
@@ -505,7 +1000,7 @@ pub(crate) fn launch_registered_game(
     }
     monitor_session(
         app,
-        services.inner().clone(),
+        services,
         provider,
         session.clone(),
         account_id,
@@ -524,6 +1019,7 @@ fn monitor_session(
 ) {
     std::thread::spawn(move || {
         let store = SessionStore::new(data_dir.join("sessions.json"));
+        let managed_session_id = session.session_id.clone();
         let mut playable_recorded = false;
         loop {
             std::thread::sleep(std::time::Duration::from_millis(250));
@@ -535,6 +1031,7 @@ fn monitor_session(
                     if let Ok(_guard) = services.session_write.lock() {
                         let _ = store.upsert(session);
                     }
+                    services.release_game_process(&managed_session_id);
                     return;
                 }
             };
@@ -593,6 +1090,7 @@ fn monitor_session(
                 if let Ok(_guard) = services.session_write.lock() {
                     let _ = store.upsert(session);
                 }
+                services.release_game_process(&managed_session_id);
                 return;
             }
         }

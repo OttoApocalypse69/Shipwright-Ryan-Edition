@@ -16,3 +16,7 @@ pnpm --filter @ftep/web build
 Deploy through the connected Vercel project or standard Vercel CLI/CI. Verify `/`, `/compatibility`, `/dashboard`, OAuth sign-in/out, unauthenticated `/admin` redirect, admin role denial/allow, device registration ownership conflict, lease issuance/signature, and GitHub release discovery. Configure monitoring for authentication failures, lease issuance, entitlement suspension/restoration, compatibility edits, API errors, latency, and database saturation without logging tokens or sensitive payloads.
 
 No live deployment was performed during local finalization because hosting credentials, OAuth applications, PostgreSQL, and production signing keys are external operator inputs.
+
+For the development-only local account and PostgreSQL workflow, see
+[`LOCAL_FTEP_DEVELOPMENT.md`](LOCAL_FTEP_DEVELOPMENT.md). It must not be used as
+a production deployment recipe.

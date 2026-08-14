@@ -32,7 +32,12 @@ function Resolve-UniqueArtifact {
 
 $runtimeTarget = Join-Path $RepositoryRoot 'apps\launcher\resources\runtime'
 $extractorTarget = Join-Path $RepositoryRoot 'apps\launcher\resources\extractor'
+$extractorAssets = Join-Path $RepositoryRoot 'soh\assets'
 New-Item -ItemType Directory -Force -Path $runtimeTarget, $extractorTarget | Out-Null
+
+if (-not (Test-Path -LiteralPath $extractorAssets -PathType Container)) {
+    throw "Shipwright extractor assets are missing: $extractorAssets"
+}
 
 $extractor = Resolve-UniqueArtifact -Root $ToolsBuild -Name 'soh-torch.exe'
 $runtime = Resolve-UniqueArtifact -Root $RuntimeOutput -Name 'soh.exe'
@@ -41,6 +46,9 @@ $runtimeArchive = Resolve-UniqueArtifact -Root $RuntimeBuild -Name 'soh.o2r'
 Copy-Item -LiteralPath $extractor -Destination (Join-Path $extractorTarget 'soh-torch.exe') -Force
 Copy-Item -LiteralPath $runtime -Destination (Join-Path $runtimeTarget 'soh.exe') -Force
 Copy-Item -LiteralPath $runtimeArchive -Destination (Join-Path $runtimeTarget 'soh.o2r') -Force
+# Torch resolves its non-ROM extraction assets from its working directory. Keep
+# the complete source tree beside it; the launcher never copies game data here.
+Copy-Item -LiteralPath $extractorAssets -Destination $extractorTarget -Recurse -Force
 
 foreach ($artifact in @($extractor, $runtime)) {
     $artifactDirectory = Split-Path -Parent $artifact
@@ -52,5 +60,6 @@ foreach ($artifact in @($extractor, $runtime)) {
 
 Write-Host "Prepared SRE launcher resources."
 Write-Host "  Extractor: $extractor"
+Write-Host "  Extractor assets: $extractorAssets"
 Write-Host "  Runtime:   $runtime"
 Write-Host "  Archive:   $runtimeArchive"

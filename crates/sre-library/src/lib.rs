@@ -159,8 +159,18 @@ impl LibraryStore {
         {
             return Err(LibraryError::InvalidRuntime(runtime_id));
         }
+        let mut state = self.load()?;
+        let existing_id = state
+            .installations
+            .values()
+            .find(|installation| {
+                installation.game_id == game_id
+                    && installation.variant_id == variant_id
+                    && installation.runtime_id == runtime_id
+            })
+            .map(|installation| installation.installation_id.clone());
         let installation = LibraryInstallation {
-            installation_id: Uuid::new_v4().to_string(),
+            installation_id: existing_id.unwrap_or_else(|| Uuid::new_v4().to_string()),
             game_id,
             variant_id,
             runtime_id,
@@ -170,7 +180,6 @@ impl LibraryStore {
             configured_at_unix_ms: now_unix_ms(),
             last_error: None,
         };
-        let mut state = self.load()?;
         state
             .installations
             .insert(installation.installation_id.clone(), installation.clone());
@@ -244,5 +253,42 @@ mod tests {
             .unwrap();
         assert_eq!(result.game_id.as_str(), "animal-crossing-new-horizons");
         assert_eq!(store.load().unwrap().installations.len(), 1);
+    }
+
+    #[test]
+    fn reconfiguring_a_game_replaces_its_existing_installation() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = LibraryStore::new(temp.path().join("library.json"));
+        let catalog = GameCatalog::from_json(CATALOG).unwrap();
+        let game_id = GameId::new("zelda-botw").unwrap();
+        let variant_id = GameVariantId::new("wiiu").unwrap();
+        let runtime_id = RuntimeId::new("cemu-compatible").unwrap();
+        let first = store
+            .register(
+                &catalog,
+                game_id.clone(),
+                variant_id.clone(),
+                runtime_id.clone(),
+                temp.path().join("first"),
+                Some(temp.path().join("runtime.exe")),
+            )
+            .unwrap();
+        let replacement = store
+            .register(
+                &catalog,
+                game_id,
+                variant_id,
+                runtime_id,
+                temp.path().join("replacement"),
+                Some(temp.path().join("runtime.exe")),
+            )
+            .unwrap();
+        assert_eq!(first.installation_id, replacement.installation_id);
+        let state = store.load().unwrap();
+        assert_eq!(state.installations.len(), 1);
+        assert_eq!(
+            state.installations[&first.installation_id].game_source,
+            temp.path().join("replacement")
+        );
     }
 }

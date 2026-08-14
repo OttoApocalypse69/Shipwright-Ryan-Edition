@@ -12,3 +12,5 @@ sre-runtime = { path = "../../../crates/ftep-runtime" }
 serde.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
+fs2 = "0.4.3"
+sha1 = "0.10.6"
