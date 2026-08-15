@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { advanceStage, initialOnboardingState, previousStage, restoreOnboardingState, stageProgress, stages, type OnboardingState } from "./domain/onboarding";
-import { achievementCount, activeRunningGameSessions, cancelRegisteredGameLaunch, chooseGameSource, chooseRuntime, chooseShipwrightData, chooseSwitchData, chooseWiiUData, connectFtep, entitlementStatus, exportDiagnostics, ftepWebUrl, getCatalog, getDeviceIdentity, hideOverlay, importShipwrightData, isDesktopLauncher, launchRegisteredGame, loadLibrary, loadOnboarding, loadSessions, popOverlay, registerGame, registerImportedShipwrightGame, runDoctor, saveOnboarding, stopRunningGame, validateShipwrightData, type CatalogGame, type DoctorReport, type GameCatalog, type LibraryState, type OverlayNotification, type RuntimeSession, type ValidationReport } from "./lib/bridge";
+import { achievementCount, activeRunningGameSessions, cancelRegisteredGameLaunch, chooseGameSource, chooseRuntime, chooseShipwrightData, chooseSwitchData, chooseWiiUData, connectFtep, entitlementStatus, exportDiagnostics, ftepWebUrl, getCatalog, getDeviceIdentity, getEmulatorInventory, hideOverlay, importShipwrightData, isDesktopLauncher, launchRegisteredGame, loadLibrary, loadOnboarding, loadSessions, openEmulator, openEmulatorRuntimeFolder, openEmulatorSettings, popOverlay, registerGame, registerImportedShipwrightGame, runDoctor, saveOnboarding, stopRunningGame, validateShipwrightData, type CatalogGame, type DoctorReport, type EmulatorInfo, type GameCatalog, type LibraryState, type OverlayNotification, type RuntimeSession, type ValidationReport } from "./lib/bridge";
 import "./styles.css";
 
 function OverlayApp() {
@@ -72,12 +72,53 @@ function LibraryApp() {
   </section>{setup && <SetupModal game={setup} close={() => setSetup(undefined)} completed={() => { setSetup(undefined); void refresh(); }} />}</main>;
 }
 
+function EmulatorHub({ emulators, loadError }: { emulators: EmulatorInfo[]; loadError?: string }) {
+  const [busy, setBusy] = useState<string>();
+  const [error, setError] = useState<string>();
+  const run = async (runtimeId: string, action: "open" | "settings" | "folder") => {
+    const key = `${runtimeId}:${action}`;
+    setBusy(key);
+    setError(undefined);
+    try {
+      if (action === "open") await openEmulator(runtimeId);
+      else if (action === "settings") await openEmulatorSettings(runtimeId);
+      else await openEmulatorRuntimeFolder(runtimeId);
+    } catch (value) {
+      setError(value instanceof Error ? value.message : String(value));
+    } finally {
+      setBusy(undefined);
+    }
+  };
+
+  return <>
+    <header className="workspace-header"><div><span className="kicker">RUNTIME CONTROL</span><h1>Emulators</h1><p>Open each installed emulator directly, or jump to the folders used for settings and updates.</p></div><span className="catalog-count">{emulators.length} runtimes</span></header>
+    {loadError && <div className="error">{loadError}</div>}
+    {emulators.length === 0 && !loadError && <div className="ready-box"><span>…</span><div><b>Loading emulator inventory…</b><p>SRE is locating its managed runtimes.</p></div></div>}
+    <div className="emulator-grid">{emulators.map((emulator) => {
+      const installed = emulator.status === "READY";
+      const openBusy = busy === `${emulator.id}:open`;
+      const settingsBusy = busy === `${emulator.id}:settings`;
+      const folderBusy = busy === `${emulator.id}:folder`;
+      return <article className="emulator-card" key={emulator.id}>
+        <div className="emulator-card-header"><div><span className="kicker">{emulator.platform}</span><h3>{emulator.name}</h3></div><span className={`badge ${installed ? "SUPPORTED" : ""}`}>{emulator.status}</span></div>
+        <p>{emulator.description}</p>
+        <div className="emulator-meta"><span>Version <b>{emulator.version}</b></span><span>Ownership <b>{emulator.managed ? "Managed by SRE" : "External"}</b></span></div>
+        <div className="emulator-paths"><div><small>Executable</small><code>{emulator.executablePath ?? "Not found"}</code></div><div><small>Settings</small><code>{emulator.settingsDirectory}</code></div></div>
+        <div className="emulator-actions"><button className="button" disabled={!installed || Boolean(busy)} onClick={() => void run(emulator.id, "open")}>{openBusy ? "Opening…" : "Open emulator"}</button><button className="button ghost" disabled={Boolean(busy)} onClick={() => void run(emulator.id, "settings")}>{settingsBusy ? "Opening…" : "Open settings folder"}</button><button className="button ghost" disabled={!installed || Boolean(busy)} onClick={() => void run(emulator.id, "folder")}>{folderBusy ? "Opening…" : "Open runtime folder"}</button></div>
+      </article>;
+    })}</div>
+    {error && <div className="error">{error}</div>}
+  </>;
+}
+
 function LibraryAppV2() {
   const [catalog, setCatalog] = useState<GameCatalog>();
   const [library, setLibrary] = useState<LibraryState>({ installations: {} });
   const [setup, setSetup] = useState<CatalogGame>();
-  const [view, setView] = useState<"library" | "diagnostics">("library");
+  const [view, setView] = useState<"library" | "diagnostics" | "emulators">("library");
   const [doctor, setDoctor] = useState<DoctorReport>();
+  const [emulators, setEmulators] = useState<EmulatorInfo[]>([]);
+  const [emulatorLoadError, setEmulatorLoadError] = useState<string>();
   const [launchError, setLaunchError] = useState<string>();
   const [launchingGameId, setLaunchingGameId] = useState<string>();
   const [cancellingLaunch, setCancellingLaunch] = useState(false);
@@ -115,6 +156,15 @@ function LibraryAppV2() {
     }
   };
 
+  const refreshEmulators = async () => {
+    try {
+      setEmulatorLoadError(undefined);
+      setEmulators(await getEmulatorInventory());
+    } catch (value) {
+      setEmulatorLoadError(value instanceof Error ? value.message : String(value));
+    }
+  };
+
   const connect = async () => {
     setConnectionBusy(true);
     setConnectionError(undefined);
@@ -125,6 +175,7 @@ function LibraryAppV2() {
 
   useEffect(() => {
     void refresh();
+    void refreshEmulators();
     void ftepWebUrl().then(setFtepUrl).catch((error) => setConnectionError(error instanceof Error ? error.message : String(error)));
   }, []);
   useEffect(() => {
@@ -183,6 +234,7 @@ function LibraryAppV2() {
       <nav>
         <button className={view === "library" ? "active" : ""} onClick={() => setView("library")}>Library</button>
         <button className={view === "diagnostics" ? "active" : ""} onClick={() => { setView("diagnostics"); void runDoctor().then(setDoctor); }}>Diagnostics</button>
+        <button className={view === "emulators" ? "active" : ""} onClick={() => { setView("emulators"); void refreshEmulators(); }}>Emulators</button>
         <button disabled={connectionBusy} onClick={() => void connect()}>{connectionBusy ? "Waiting for FTEP..." : "Connect / refresh FTEP"}</button>
         <a href={`${ftepUrl}/dashboard`} target="_blank" rel="noreferrer">FTEP Dashboard ↗</a>
       </nav>
@@ -218,10 +270,10 @@ function LibraryAppV2() {
             </div>
           </article>;
         })}</div>
-      </> : <>
+      </> : view === "diagnostics" ? <>
         <header className="workspace-header"><div><span className="kicker">SRE DOCTOR</span><h1>Diagnostics</h1><p>Actionable checks with sanitized export.</p></div><button className="button ghost" onClick={() => void exportDiagnostics()}>Export sanitized report</button></header>
         <div className="doctor-list">{doctor?.checks.map((check) => <article key={check.id}><span className={`check ${check.status}`}>{check.status}</span><div><b>{check.id}</b><p>{check.summary}</p>{check.remediation && <small>{check.remediation}</small>}</div></article>)}</div>
-      </>}
+      </> : <EmulatorHub emulators={emulators} loadError={emulatorLoadError} />}
     </section>
     {setup && <SetupModal game={setup} close={() => setSetup(undefined)} completed={() => { setSetup(undefined); void refresh(); }} />}
   </main>;

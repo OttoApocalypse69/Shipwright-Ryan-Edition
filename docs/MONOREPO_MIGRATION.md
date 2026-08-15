@@ -621,3 +621,41 @@ change and record verification evidence before treating a phase as complete.
   the user's game image, with no separate emulator executable selection.
 - Echoes of Wisdom is promoted to `SUPPORTED` after user verification of its
   managed Ryujinx path.
+- Local FTEP account registration and sign-in now remain usable when the
+  optional development PostgreSQL service is offline. The development-only
+  fallback writes salted scrypt password verifiers to an account store under
+  the current user's LocalAppData directory (or the explicit
+  `FTEP_LOCAL_ACCOUNT_STORE` path); it is never enabled in production.
+- Development device registration now rebinds SRE's retained local device
+  identity after a local account is recreated. Production registrations remain
+  strict: an existing device can never be reassigned to another account there.
+- All Switch catalog entries now resolve the experimental Ryujinx Canary 1.3.340
+  runtime. The previous bundled stable Ryubing/Ryujinx 1.3.3 runtime was
+  removed at the user's request; SRE still requires user-provided game data,
+  keys, and firmware.
+- Canary was upgraded after the older 1.3.31 build stalled on Animal Crossing
+  v3.0.3. The verified 1.3.340 build loads the same user-supplied NSP, detects
+  its update/DLC, initializes PTC, and reaches shader loading in a controlled
+  smoke test.
+- Managed Switch launches now pass Ryujinx's `--hide-updates` flag. Canary
+  builds otherwise attempt the retired GitHub release endpoint before opening
+  the game and can show a blocking update-check error even when persisted
+  settings disable startup checks.
+- Local development now prefers the checked-in Canary package over any stale
+  `target/debug` runtime staging, and the staged development copy is refreshed
+  to 1.3.340. This prevents an older 1.3.31 executable from being selected
+  after rebuilding the launcher.
+- The terminal-free `START SRE.exe` helper now holds an OS-level instance lock,
+  treats duplicate clicks as a successful handoff, and detects older helper
+  processes without showing a port-in-use dialog. After a forced close leaves
+  only Vite on `127.0.0.1:1420`, the next start reuses that frontend and opens
+  a fresh SRE window. A repeated-start smoke test passed with exit code 0 and
+  no project child processes left behind after shutdown.
+- The launcher now exposes an **Emulators** sidebar view for the managed
+  Shipwright, 2 Ship 2 Harkinian, Cemu 2.6, and Ryujinx Canary runtimes. Each
+  card reports availability and provides actions to open the emulator without
+  a game, open its settings directory, or open its runtime directory for
+  updates. Ryujinx is launched with `--hide-updates` so its retired release
+  check cannot block startup, and 2 Ship is staged to a writable app-data copy
+  before it is opened. The web build, lint/tests, offline Rust checks, local
+  launcher rebuild, and browser smoke verification all passed.

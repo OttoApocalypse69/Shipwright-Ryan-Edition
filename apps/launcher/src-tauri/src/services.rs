@@ -914,7 +914,7 @@ fn launch_registered_game_blocking(
         session_id: uuid::Uuid::new_v4().to_string(),
         installation: GameInstallation {
             installation_id: installation.installation_id,
-            game_id: installation.game_id,
+            game_id: installation.game_id.clone(),
             variant_id: installation.variant_id,
             runtime_id: installation.runtime_id.clone(),
             root: installation.game_source,
@@ -951,8 +951,8 @@ fn launch_registered_game_blocking(
             "switch-runtime" => {
                 let provider = Arc::new(SwitchRuntimeProvider::new(
                     Some(ExternalSwitchImplementation::manually_configured(
-                        "managed-ryujinx",
-                        "Managed Ryujinx runtime",
+                        "managed-ryujinx-canary",
+                        "Managed Ryujinx Canary runtime",
                         crate::importer::managed_ryujinx_executable(&app)?,
                     )),
                 ));

@@ -3,8 +3,8 @@ use serde::Deserialize;
 use sre_shipwright_adapter::{OotImportReport, OotImportRequest, ShipwrightAdapter};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use tauri::Manager;
 
 #[derive(Clone)]
@@ -153,10 +153,17 @@ fn staged_two_ship_executable(
 pub(crate) fn two_ship_adapter(
     app: &tauri::AppHandle,
 ) -> Result<sre_two_ship_adapter::TwoShipAdapter, String> {
-    let bundled_executable = two_ship_executable(app)?;
     Ok(sre_two_ship_adapter::TwoShipAdapter::new(
-        staged_two_ship_executable(app, bundled_executable)?,
+        managed_two_ship_executable(app)?,
     ))
+}
+
+/// Returns a writable, application-owned 2 Ship runtime. The first call
+/// stages the bundled runtime into app data so settings and generated files do
+/// not land beside read-only packaged resources.
+pub(crate) fn managed_two_ship_executable(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let bundled_executable = two_ship_executable(app)?;
+    staged_two_ship_executable(app, bundled_executable)
 }
 
 /// Cemu is an explicitly user-installed managed runtime, never a source of
@@ -169,22 +176,44 @@ pub(crate) fn managed_cemu_executable(app: &tauri::AppHandle) -> Result<PathBuf,
     })
 }
 
-/// Returns the application-owned Ryujinx runtime without exposing bundled
-/// resource layout to the library or session layers.
+fn managed_ryujinx_resource_executable(
+    app: &tauri::AppHandle,
+    resource_directory: &str,
+    missing_message: &str,
+) -> Result<PathBuf, String> {
+    // During local development Tauri's resource directory is `target/debug`.
+    // That directory can retain a runtime staged by an older build, so prefer
+    // the checked-in package first. Packaged builds fall back to their normal
+    // resource directory because the workspace path does not exist there.
+    std::iter::once(project_root().join(format!(
+        "apps/launcher/resources/runtime/{resource_directory}/publish/Ryujinx.exe"
+    )))
+    .chain(
+        app.path()
+            .resource_dir()
+            .ok()
+            .into_iter()
+            .flat_map(|directory| {
+                [
+                    directory.join(format!("runtime/{resource_directory}/publish/Ryujinx.exe")),
+                    directory.join(format!(
+                        "resources/runtime/{resource_directory}/publish/Ryujinx.exe"
+                    )),
+                ]
+            }),
+    )
+    .find(|candidate| candidate.is_file())
+    .ok_or_else(|| missing_message.to_owned())
+}
+
+/// Returns the application-owned Canary Ryujinx runtime without exposing
+/// bundled resource layout to the library or session layers.
 pub(crate) fn managed_ryujinx_executable(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .resource_dir()
-        .ok()
-        .into_iter()
-        .flat_map(|directory| {
-            [
-                directory.join("runtime/ryubing/publish/Ryujinx.exe"),
-                directory.join("resources/runtime/ryubing/publish/Ryujinx.exe"),
-            ]
-        })
-        .chain([project_root().join("apps/launcher/resources/runtime/ryubing/publish/Ryujinx.exe")])
-        .find(|candidate| candidate.is_file())
-        .ok_or_else(|| "FICSIT-0008: SRE's bundled Ryujinx runtime is missing. Reinstall SRE.".to_owned())
+    managed_ryujinx_resource_executable(
+        app,
+        "ryujinx-canary",
+        "FICSIT-0008: SRE's bundled Ryujinx Canary runtime is missing. Reinstall SRE.",
+    )
 }
 
 pub(crate) fn assets_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {

@@ -20,6 +20,13 @@ and starts the development launcher plus its managed FTEP service. It does not
 start or stop Docker/PostgreSQL; those remain the durable local database
 service. Its startup log is `target\sre-local-launcher.log`.
 
+`START SRE.exe` is safe to click more than once. It keeps an OS-level lock for
+the lifetime of the running helper, so a second click exits successfully and
+leaves the existing SRE window and local services untouched. If a forced close
+left the Vite frontend listening on port 1420 without an SRE window, the next
+start reuses that frontend and opens a fresh SRE instance rather than reporting
+the port as a fatal error.
+
 Open SRE and choose **Connect / refresh FTEP**. The browser opens the exact
 local sign-up/sign-in page for the managed service. Local accounts are
 intentionally available only when
@@ -27,6 +34,11 @@ intentionally available only when
 
 The ignored `apps/web/.env.local` contains the local database connection and
 development lease-signing key. Do not commit or reuse it for a deployment.
+When PostgreSQL is unavailable, sign-up and sign-in transparently use the
+development-only local account store at `%LOCALAPPDATA%\\Shipwright Ryan
+Edition\\ftep\\local-accounts.json` (or `FTEP_LOCAL_ACCOUNT_STORE` if set).
+Passwords are saved only as salted scrypt verifiers. This fallback is available
+only for local development accounts, never in production.
 
 ## Connect SRE
 

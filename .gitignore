@@ -114,6 +114,9 @@ bld/
 # `bin`; it is source code, not a Visual Studio build output directory.
 !crates/sre-diagnostics/src/bin/
 !crates/sre-diagnostics/src/bin/**
+# The terminal-free SRE startup helper is Rust source, not a build artifact.
+!apps/launcher/src-tauri/src/bin/
+!apps/launcher/src-tauri/src/bin/**
 [Oo]bj/
 [Ll]og/
 
@@ -256,6 +259,12 @@ DocProject/Help/html
 
 # Click-Once directory
 publish/
+# The SRE launcher deliberately bundles its pinned Switch runtime files here;
+# these are application resources, not Click-Once deployment output.
+!apps/launcher/resources/runtime/ryujinx-canary/
+!apps/launcher/resources/runtime/ryujinx-canary/publish/
+!apps/launcher/resources/runtime/ryujinx-canary/publish/**
+apps/launcher/resources/runtime/ryujinx-canary/publish/Logs/
 
 # Publish Web Output
 *.[Pp]ublish.xml

@@ -101,7 +101,7 @@
       "id": "animal-crossing-new-horizons",
       "franchise": "animal-crossing",
       "title": "Animal Crossing: New Horizons",
-      "description": "A non-Zelda title proving that SRE's library and Switch runtime model are genuinely generic.",
+      "description": "A non-Zelda title using SRE's experimental managed Ryujinx Canary runtime.",
       "cover": { "kind": "ORIGINAL_PLACEHOLDER", "titleMark": "ACNH", "accentColor": "#ffb563", "backgroundColor": "#183c35", "bannerUrl": "https://static.actugaming.net/media/2020/01/animal-crossing-new-horizons-key-art-e1577990302845.jpg" },
       "variants": [{
         "id": "switch",

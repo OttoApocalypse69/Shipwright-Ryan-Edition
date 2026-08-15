@@ -15,7 +15,7 @@ export function LocalAccountForm({ mode, returnTo }: { mode: "sign-in" | "sign-u
     {signUp && <label htmlFor="displayName">Display name<input id="displayName" name="displayName" type="text" autoComplete="name" maxLength={80} /></label>}
     <label htmlFor="email">Email<input id="email" name="email" type="email" autoComplete="email" required maxLength={320} /></label>
     <label htmlFor="password">Password<input id="password" name="password" type="password" autoComplete={signUp ? "new-password" : "current-password"} required minLength={12} maxLength={128} /></label>
-    {signUp && <p className="form-note">Use at least 12 characters. This local development account stays in your local FTEP database.</p>}
+    {signUp && <p className="form-note">Use at least 12 characters. Your local development account is stored securely on this PC and works even when PostgreSQL is unavailable.</p>}
     {state.error && <p aria-live="polite" className="error-text">{state.error}</p>}
     <button className="button" type="submit" disabled={pending}>{pending ? "Working…" : signUp ? "Create local account" : "Sign in"}</button>
     <p className="form-note">{signUp ? "Already have an account?" : "Need a local account?"} <Link href={alternate}>{signUp ? "Sign in" : "Create one"}</Link></p>

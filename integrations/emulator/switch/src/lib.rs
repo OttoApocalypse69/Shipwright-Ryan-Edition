@@ -39,7 +39,11 @@ impl ExternalSwitchImplementation {
             display_name: display_name.into(),
             executable,
             version_arguments: vec!["--version".to_owned()],
-            launch_arguments: vec![],
+            // Ryujinx/Ryubing builds may still attempt the retired GitHub
+            // release endpoint even when their persisted setting says not to
+            // check. Keep managed game launches offline and avoid showing an
+            // update-check error before the game window opens.
+            launch_arguments: vec!["--hide-updates".to_owned()],
             save_root: None,
             playable_threshold_ms: 5_000,
         }
@@ -501,5 +505,15 @@ mod tests {
                 .unwrap()
                 .valid
         );
+    }
+
+    #[test]
+    fn managed_launch_suppresses_retired_update_endpoint() {
+        let implementation = ExternalSwitchImplementation::manually_configured(
+            "managed-ryujinx-canary",
+            "Managed Ryujinx Canary",
+            PathBuf::from("Ryujinx.exe"),
+        );
+        assert_eq!(implementation.launch_arguments, vec!["--hide-updates"]);
     }
 }

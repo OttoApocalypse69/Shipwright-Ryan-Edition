@@ -16,6 +16,7 @@ export interface RuntimeSession { sessionId: string; gameId: string; variantId: 
 export interface SessionHistory { sessions: RuntimeSession[] }
 export interface ValidationReport { fileName: string; fileSize: number; versionSupported: boolean; detectedVersion?: string; integrityValidated: boolean; importPipelineAvailable: boolean; sha1: string }
 export interface ImportReport { archiveName: string; installationId: string; importedAtUnixMs: number }
+export interface EmulatorInfo { id: string; name: string; platform: string; version: string; status: "READY" | "MISSING"; managed: boolean; executablePath?: string; runtimeDirectory?: string; settingsDirectory: string; description: string }
 
 const browserPreviewFtepUrl = import.meta.env.VITE_FTEP_WEB_URL ?? "http://localhost:3000";
 
@@ -47,3 +48,7 @@ export async function validateShipwrightData(path: string): Promise<ValidationRe
 export async function importShipwrightData(path: string, report: ValidationReport): Promise<ImportReport> { return invoke<ImportReport>("import_game_data", { request: { path, expectedSha1: report.sha1, detectedVersion: report.detectedVersion ?? "unknown" } }); }
 export async function popOverlay(): Promise<OverlayNotification | null> { return isDesktopLauncher() ? invoke<OverlayNotification | null>("pop_overlay") : null; }
 export async function hideOverlay(): Promise<void> { if (isDesktopLauncher()) await invoke("hide_overlay"); }
+export async function getEmulatorInventory(): Promise<EmulatorInfo[]> { return isDesktopLauncher() ? invoke<EmulatorInfo[]>("emulator_inventory") : []; }
+export async function openEmulator(runtimeId: string): Promise<void> { if (!isDesktopLauncher()) throw new Error("Opening emulators requires the installed SRE desktop app."); await invoke("open_emulator", { request: { runtimeId } }); }
+export async function openEmulatorSettings(runtimeId: string): Promise<void> { if (!isDesktopLauncher()) throw new Error("Opening emulator settings requires the installed SRE desktop app."); await invoke("open_emulator_settings", { request: { runtimeId } }); }
+export async function openEmulatorRuntimeFolder(runtimeId: string): Promise<void> { if (!isDesktopLauncher()) throw new Error("Opening emulator folders requires the installed SRE desktop app."); await invoke("open_emulator_runtime_folder", { request: { runtimeId } }); }

@@ -1,6 +1,7 @@
 mod importer;
 mod library;
 mod platform;
+mod runtimes;
 mod services;
 mod storage;
 
@@ -399,6 +400,10 @@ pub fn run() {
             library::load_library,
             library::register_game,
             library::register_imported_shipwright_game,
+            runtimes::emulator_inventory,
+            runtimes::open_emulator,
+            runtimes::open_emulator_settings,
+            runtimes::open_emulator_runtime_folder,
             services::device_identity,
             services::verify_cached_lease,
             services::cache_entitlement_lease,

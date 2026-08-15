@@ -56,3 +56,17 @@ the dynamically ported local FTEP service. It is intentionally a source-checkout
 helper, not an end-user release installer; it requires the already-installed
 Node.js, pnpm, Docker/PostgreSQL, and local FTEP configuration. Startup output
 is written to `target\sre-local-launcher.log` if troubleshooting is needed.
+Repeated clicks are safe: the helper holds an OS-level instance lock and exits
+successfully when SRE is already running. If a forced close left only the Vite
+frontend behind, the next click reuses that frontend and starts a fresh SRE
+window instead of showing a port-in-use error.
+
+## Emulator control
+
+Open **Emulators** from the launcher sidebar to see the managed Shipwright,
+2 Ship 2 Harkinian, Cemu, and Ryujinx Canary runtimes. The view includes
+separate buttons for opening an emulator without a game, opening its settings
+folder, and opening its runtime folder so updates can be applied without
+repeating game setup. Missing runtimes remain visible with their settings
+folder available, while launch and runtime-folder actions stay disabled until
+the executable is present.

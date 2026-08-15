@@ -1,9 +1,12 @@
 import { generateKeyPairSync, verify } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { configuredProviderIds, localCredentialsEnabled, roleForEmail } from "@/lib/auth-config";
 import { mayPerform, requireAdmin } from "@/lib/authorization";
 import { compatibilityRows } from "@/lib/catalog";
-import { hashLocalPassword, safeLocalReturnTo, verifyLocalPassword } from "@/lib/local-credentials";
+import { authenticateLocalAccount, createLocalAccount, hashLocalPassword, safeLocalReturnTo, verifyLocalPassword } from "@/lib/local-credentials";
 import { parseStableRelease } from "@/lib/releases";
 import { signLease } from "@/lib/signing";
 import { accord, accordDocumentHash } from "@/lib/accord";
@@ -37,10 +40,30 @@ test("local account passwords use a salted verifier and safe local return paths"
   expect(safeLocalReturnTo("//unsafe.example")).toBe("/dashboard");
 });
 
+test("local accounts fall back to the per-user development store when PostgreSQL is unavailable", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "ftep-local-accounts-"));
+  const previousStore = process.env.FTEP_LOCAL_ACCOUNT_STORE;
+  const previousDatabaseUrl = process.env.DATABASE_URL;
+  process.env.FTEP_LOCAL_ACCOUNT_STORE = join(directory, "accounts.json");
+  delete process.env.DATABASE_URL;
+  try {
+    const registration = await createLocalAccount({ email: "local@example.test", password: "development-password", displayName: "Local player" });
+    expect(registration.conflict).toBe(false);
+    await expect(authenticateLocalAccount({ email: "local@example.test", password: "development-password" })).resolves.toMatchObject({ email: "local@example.test", displayName: "Local player" });
+    await expect(authenticateLocalAccount({ email: "local@example.test", password: "wrong-development-password" })).resolves.toBeNull();
+  } finally {
+    if (previousStore === undefined) delete process.env.FTEP_LOCAL_ACCOUNT_STORE;
+    else process.env.FTEP_LOCAL_ACCOUNT_STORE = previousStore;
+    if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = previousDatabaseUrl;
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 describe("public APIs", () => {
   test("compatibility is represented per game variant and runtime", () => {
     const rows = compatibilityRows();
-    expect(rows.some((row) => row.gameId === "zelda-botw" && row.runtimeId === "cemu-compatible" && row.status === "EXPERIMENTAL")).toBe(true);
+    expect(rows.some((row) => row.gameId === "zelda-botw" && row.runtimeId === "cemu-compatible" && row.status === "SUPPORTED")).toBe(true);
     expect(rows.filter((row) => ["zelda-totk", "zelda-echoes-of-wisdom", "animal-crossing-new-horizons"].includes(row.gameId)).every((row) => row.runtimeId === "switch-runtime")).toBe(true);
   });
   test("release lookup excludes unexpected assets and prereleases", () => {
