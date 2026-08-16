@@ -342,6 +342,7 @@ mod tests {
                 title_mark: "FG".to_owned(),
                 accent_color: "#55c2ff".to_owned(),
                 background_color: "#101827".to_owned(),
+                banner_url: None,
             },
             variants: vec![GameVariant {
                 id: variant_id.clone(),

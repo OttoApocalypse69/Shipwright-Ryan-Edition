@@ -13,10 +13,11 @@ sre-runtime provider contract
         |
         +-- Shipwright native adapter
         +-- Cemu-compatible external Wii U adapter
+        +-- Dolphin-compatible external Wii adapter
         `-- generic user-selected Switch adapter
 ```
 
-The core/runtime crates have no Tauri, web, Shipwright, Cemu, Switch-runtime, or operating-system process dependency. Adapters own detection, version/source validation, preparation, configuration, launch, observation, playable signal, save location, and diagnostics. The application owns the library, authorization, sessions, achievement evaluation, overlay, and UX.
+The core/runtime crates have no Tauri, web, Shipwright, Cemu, Dolphin, Switch-runtime, or operating-system process dependency. Adapters own detection, version/source validation, preparation, configuration, launch, observation, playable signal, save location, and diagnostics. The application owns the library, authorization, sessions, achievement evaluation, overlay, and UX.
 
 Trust boundaries:
 

@@ -307,8 +307,8 @@ fn create_log(path: &Path) -> Result<File, String> {
 #[cfg(windows)]
 fn show_error(message: &str) {
     use windows::{
+        Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MB_OK, MessageBoxW},
         core::HSTRING,
-        Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK},
     };
 
     let title = HSTRING::from("SRE Local Launcher");

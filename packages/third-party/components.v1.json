@@ -73,6 +73,18 @@
       "attributionRequired": true,
       "sourceAvailable": true,
       "notes": "SRE neither bundles nor downloads Cemu. Users select an installation they obtained separately."
+    },
+    {
+      "id": "dolphin",
+      "name": "Dolphin Emulator",
+      "projectUrl": "https://dolphin-emu.org/",
+      "license": "GPL-2.0-or-later",
+      "redistributionMode": "EXTERNAL",
+      "integrationType": "DETECTION_AND_MANUAL_SELECTION",
+      "version": "user-managed",
+      "attributionRequired": true,
+      "sourceAvailable": true,
+      "notes": "SRE neither bundles nor downloads Dolphin. Users select an installation they obtained separately for Wii game images."
     }
   ]
 }

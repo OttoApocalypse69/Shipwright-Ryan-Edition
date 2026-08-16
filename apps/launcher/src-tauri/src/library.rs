@@ -2,6 +2,7 @@ use crate::storage;
 use serde::Deserialize;
 use serde_json::Value;
 use sre_core::{GameCatalog, GameId, GameVariantId, RuntimeId};
+use sre_dolphin_adapter::DolphinRuntimeAdapter;
 use sre_library::{InstallationStatus, LibraryInstallation, LibraryState, LibraryStore};
 use sre_runtime::{GameSource, RuntimeProvider};
 use sre_switch_adapter::{ExternalSwitchImplementation, SwitchRuntimeProvider};
@@ -83,6 +84,9 @@ pub(crate) fn register_game(
             });
             SwitchRuntimeProvider::new(implementation).validate_source(game, &source)
         }
+        "dolphin-compatible" => {
+            DolphinRuntimeAdapter::new(runtime_path.clone()).validate_source(game, &source)
+        }
         "shipwright" => {
             return Err(
                 "FICSIT-0006: Use the guided native OoT import workflow for Shipwright game data."
@@ -105,13 +109,12 @@ pub(crate) fn register_game(
     if !validation.valid {
         return Err(format!("FICSIT-0007: {}", validation.summary));
     }
-    if matches!(runtime_id.as_str(), "cemu-compatible" | "switch-runtime")
-        && !runtime_path.as_ref().is_some_and(|path| path.is_file())
+    if matches!(
+        runtime_id.as_str(),
+        "cemu-compatible" | "switch-runtime" | "dolphin-compatible"
+    ) && !runtime_path.as_ref().is_some_and(|path| path.is_file())
     {
-        return Err(
-            "FICSIT-0008: The managed runtime is missing. Reinstall SRE."
-                .to_owned(),
-        );
+        return Err("FICSIT-0008: The managed runtime is missing. Reinstall SRE.".to_owned());
     }
     let store = store(&app)?;
     let installation = store

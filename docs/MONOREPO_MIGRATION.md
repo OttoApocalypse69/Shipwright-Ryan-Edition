@@ -1,8 +1,10 @@
 # FTEP monorepo migration assessment
 
-Status: approved implementation plan, based on the repository at
+Status: approved implementation plan.
+Baseline: repository at
 `14d9d4e8bb50dbcff65e2544305fb253bd9cdb72` plus the uncommitted Milestone 1.5
 launcher work inspected on 2026-08-13.
+Last updated: 2026-08-16.
 
 This document is the Phase A audit and the migration contract for turning this
 Shipwright-derived repository into the FICSIT Treaty Enforcement Platform
@@ -651,6 +653,9 @@ change and record verification evidence before treating a phase as complete.
   only Vite on `127.0.0.1:1420`, the next start reuses that frontend and opens
   a fresh SRE window. A repeated-start smoke test passed with exit code 0 and
   no project child processes left behind after shutdown.
+
+### Runtime control and startup responsiveness — 2026-08-16
+
 - The launcher now exposes an **Emulators** sidebar view for the managed
   Shipwright, 2 Ship 2 Harkinian, Cemu 2.6, and Ryujinx Canary runtimes. Each
   card reports availability and provides actions to open the emulator without
@@ -659,3 +664,35 @@ change and record verification evidence before treating a phase as complete.
   check cannot block startup, and 2 Ship is staged to a writable app-data copy
   before it is opened. The web build, lint/tests, offline Rust checks, local
   launcher rebuild, and browser smoke verification all passed.
+- Local FTEP startup no longer blocks Tauri's setup hook while waiting for the
+  Next.js `/sign-in` health check. The native window can render immediately,
+  with a static preloader plus a retryable ten-second startup timeout while
+  local state is loaded. The managed FTEP child remains owned by SRE and is
+  still stopped on normal window close.
+
+### Skyward Sword and Animal Crossing compatibility — 2026-08-16
+
+- Added The Legend of Zelda: Skyward Sword as a catalog title with an official
+  Nintendo-hosted banner reference. Its preferred variant is now Skyward Sword
+  HD for Switch, using the managed Ryujinx Canary runtime and the normal Switch
+  game-data picker; the original Wii/Dolphin variant remains available as a
+  secondary compatibility path.
+- Added Dolphin to the launcher emulator hub. The hub detects common user
+  installations and opens Dolphin settings; setup still requires the user to
+  select the executable when it is installed in a portable or custom folder.
+- Animal Crossing: New Horizons is now marked `SUPPORTED` for the managed
+  Ryujinx Canary path after the user's launch verification. Its game data,
+  keys, firmware, and runtime remain user/application-owned as before.
+- No game images, emulator binaries, keys, firmware, or other console-derived
+  material are downloaded or bundled by the Skyward Sword integration.
+
+### Skyward Sword HD runtime follow-up — 2026-08-16
+
+- The launcher no longer asks for an external runtime when setting up Skyward
+  Sword HD. It resolves the same managed Ryujinx Canary runtime already used by
+  the other Switch titles and only asks the user for their legally supplied
+  Switch game data.
+- Skyward Sword HD is now marked `SUPPORTED` after the user's successful launch
+  verification with the managed Ryujinx Canary path.
+- Cemu remains scoped to Wii U titles such as Breath of the Wild; it is not a
+  valid runtime for either the Wii or Switch release of Skyward Sword.

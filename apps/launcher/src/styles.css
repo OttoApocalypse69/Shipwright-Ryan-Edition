@@ -3,7 +3,15 @@
 body { margin: 0; min-width: 320px; min-height: 100vh; background: radial-gradient(circle at 15% 0,#21443b 0,transparent 38rem),#071111; }
 button, input { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
-.loading { min-height:100vh;display:grid;place-items:center;font-size:5rem;font-weight:950;letter-spacing:.12em; }
+.loading { min-height:100vh;display:grid;place-items:center;padding:32px;background:radial-gradient(circle at 15% 0,#21443b 0,transparent 38rem),#071111; }
+.loading-card { width:min(520px,100%);border:1px solid var(--line);background:rgba(16,29,29,.94);padding:38px;box-shadow:18px 18px #030808; }
+.loading-card h1 { font-size:4.5rem;line-height:1;margin:10px 0;letter-spacing:-.06em; }
+.loading-card p { color:var(--muted);min-height:22px;margin:0 0 22px; }
+.loading-card small { display:block;color:var(--muted);margin-top:12px; }
+.loading-card .button { margin-top:18px; }
+.loading-track { height:5px;overflow:hidden;background:#1e302f;margin-bottom:4px; }
+.loading-track span { display:block;width:38%;height:100%;background:var(--gold);animation:sre-loading-progress 1.2s ease-in-out infinite; }
+@keyframes sre-loading-progress { from { transform:translateX(-130%); } to { transform:translateX(350%); } }
 .wordmark { display:flex;align-items:center;gap:13px;font-weight:950;font-size:1.45rem;letter-spacing:.16em; }
 .wordmark small { display:block;max-width:130px;font-size:.54rem;line-height:1.25;letter-spacing:.12em;color:var(--muted); }
 .kicker { color:var(--gold);font-weight:900;letter-spacing:.18em;font-size:.7rem; }

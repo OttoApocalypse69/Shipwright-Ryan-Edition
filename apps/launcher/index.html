@@ -9,9 +9,31 @@
       content="Super Runtime Environment desktop library"
     />
     <title>SRE — Super Runtime Environment</title>
+    <style>
+      :root { color-scheme: dark; }
+      html, body { margin: 0; min-width: 320px; min-height: 100%; background: #071111; }
+      #root { min-height: 100vh; }
+      #boot-loader { min-height: 100vh; display: grid; place-items: center; color: #ecf4f1; font-family: Inter, "Segoe UI", system-ui, sans-serif; background: radial-gradient(circle at 15% 0, #21443b 0, transparent 38rem), #071111; }
+      #boot-loader > div { width: min(420px, calc(100% - 48px)); }
+      #boot-loader strong { display: block; font-size: 3.4rem; letter-spacing: .16em; }
+      #boot-loader p { margin: 8px 0 22px; color: #99aaa7; }
+      #boot-loader .boot-track { height: 4px; overflow: hidden; background: #1e302f; }
+      #boot-loader .boot-track span { display: block; width: 42%; height: 100%; background: #f1c451; animation: sre-boot-progress 1.15s ease-in-out infinite; }
+      #boot-loader small { display: block; margin-top: 12px; color: #6f8580; }
+      @keyframes sre-boot-progress { from { transform: translateX(-120%); } to { transform: translateX(340%); } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main id="boot-loader" role="status" aria-live="polite">
+        <div>
+          <strong>SRE</strong>
+          <p>Starting the local launcher…</p>
+          <div class="boot-track"><span></span></div>
+          <small>The window will stay responsive while local services start.</small>
+        </div>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

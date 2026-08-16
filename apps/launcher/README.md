@@ -1,6 +1,6 @@
 # SRE desktop launcher
 
-The Tauri 2 / React launcher provides five-step onboarding, local random device identity, Accord acceptance, catalog library, OoT import, external Wii U/Switch setup, signed entitlement enforcement, process-backed sessions, offline achievements, a separate overlay window, and sanitized diagnostics.
+The Tauri 2 / React launcher provides five-step onboarding, local random device identity, Accord acceptance, catalog library, OoT import, external Wii/Wii U/Switch setup, signed entitlement enforcement, process-backed sessions, offline achievements, a separate overlay window, and sanitized diagnostics.
 
 ## UI development
 
@@ -61,10 +61,15 @@ successfully when SRE is already running. If a forced close left only the Vite
 frontend behind, the next click reuses that frontend and starts a fresh SRE
 window instead of showing a port-in-use error.
 
+The local FTEP development server starts in the background after the native
+window opens. SRE shows an indeterminate startup bar while it reads local
+state, and reports a retryable timeout instead of leaving a blank window if a
+native startup call does not respond.
+
 ## Emulator control
 
 Open **Emulators** from the launcher sidebar to see the managed Shipwright,
-2 Ship 2 Harkinian, Cemu, and Ryujinx Canary runtimes. The view includes
+2 Ship 2 Harkinian, Cemu, Ryujinx Canary, and user-installed Dolphin runtimes. The view includes
 separate buttons for opening an emulator without a game, opening its settings
 folder, and opening its runtime folder so updates can be applied without
 repeating game setup. Missing runtimes remain visible with their settings

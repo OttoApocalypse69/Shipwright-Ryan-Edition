@@ -3,8 +3,8 @@ use serde::Deserialize;
 use sre_shipwright_adapter::{OotImportReport, OotImportRequest, ShipwrightAdapter};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Manager;
 
 #[derive(Clone)]
@@ -214,6 +214,26 @@ pub(crate) fn managed_ryujinx_executable(app: &tauri::AppHandle) -> Result<PathB
         "ryujinx-canary",
         "FICSIT-0008: SRE's bundled Ryujinx Canary runtime is missing. Reinstall SRE.",
     )
+}
+
+/// Detect a user-installed Dolphin executable without downloading or staging
+/// anything. Game setup still allows an explicit executable selection when a
+/// portable Dolphin build lives elsewhere.
+pub(crate) fn detected_dolphin_executable() -> Option<PathBuf> {
+    std::env::var_os("DOLPHIN_EXECUTABLE")
+        .map(PathBuf::from)
+        .into_iter()
+        .chain(
+            std::env::var_os("ProgramFiles")
+                .map(PathBuf::from)
+                .map(|root| root.join("Dolphin Emulator/Dolphin.exe")),
+        )
+        .chain(
+            std::env::var_os("LOCALAPPDATA")
+                .map(PathBuf::from)
+                .map(|root| root.join("Dolphin Emulator/Dolphin.exe")),
+        )
+        .find(|candidate| candidate.is_file())
 }
 
 pub(crate) fn assets_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {

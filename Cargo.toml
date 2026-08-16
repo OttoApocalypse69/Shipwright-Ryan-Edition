@@ -15,6 +15,7 @@ members = [
     "integrations/native/two-ship",
     "integrations/emulator/wiiu",
     "integrations/emulator/switch",
+    "integrations/emulator/dolphin",
 ]
 resolver = "3"
 

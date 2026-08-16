@@ -41,6 +41,34 @@
       "achievementNamespace": "ftep.game.zelda-mm"
     },
     {
+      "id": "zelda-skyward-sword",
+      "franchise": "zelda",
+      "title": "The Legend of Zelda: Skyward Sword HD",
+      "description": "An experimental Switch HD path using SRE's managed Ryujinx Canary runtime and game data legally supplied by the user.",
+      "cover": { "kind": "ORIGINAL_PLACEHOLDER", "titleMark": "SSHD", "accentColor": "#68c9f0", "backgroundColor": "#24395d", "bannerUrl": "https://www.nintendo.com/kr/software/switch/az89a/sns.png" },
+      "variants": [{
+        "id": "switch",
+        "originalPlatform": "SWITCH",
+        "runtimeCandidates": [{ "runtimeId": "switch-runtime", "priority": 10, "compatibility": "SUPPORTED" }],
+        "preferredRuntime": "switch-runtime",
+        "sourceRequirements": [
+          { "id": "compatible-game-data", "kind": "GAME_IMAGE", "description": "Compatible, legally dumped Skyward Sword HD Switch game data supplied by the user (.nsp, .xci, .nca, .nsz, or .xcz).", "required": true },
+          { "id": "runtime-required-material", "kind": "RUNTIME_MATERIAL", "description": "Legitimate material required by the managed Ryujinx Canary runtime.", "required": false }
+        ]
+      }, {
+        "id": "wii",
+        "originalPlatform": "WII",
+        "runtimeCandidates": [{ "runtimeId": "dolphin-compatible", "priority": 10, "compatibility": "EXPERIMENTAL" }],
+        "preferredRuntime": "dolphin-compatible",
+        "sourceRequirements": [
+          { "id": "compatible-game-image", "kind": "GAME_IMAGE", "description": "A legally dumped Wii Skyward Sword game image supplied by the user (.iso, .wbfs, .rvz, .gcz, .wia, or .ciso).", "required": true },
+          { "id": "runtime-required-material", "kind": "RUNTIME_MATERIAL", "description": "Any legitimate material required by the user-selected Dolphin runtime.", "required": false }
+        ]
+      }],
+      "preferredVariant": "switch",
+      "achievementNamespace": "ftep.game.zelda-skyward-sword"
+    },
+    {
       "id": "zelda-botw",
       "franchise": "zelda",
       "title": "The Legend of Zelda: Breath of the Wild",
@@ -101,12 +129,12 @@
       "id": "animal-crossing-new-horizons",
       "franchise": "animal-crossing",
       "title": "Animal Crossing: New Horizons",
-      "description": "A non-Zelda title using SRE's experimental managed Ryujinx Canary runtime.",
+      "description": "A supported Switch path using SRE's managed Ryujinx Canary runtime and game data legally supplied by the user.",
       "cover": { "kind": "ORIGINAL_PLACEHOLDER", "titleMark": "ACNH", "accentColor": "#ffb563", "backgroundColor": "#183c35", "bannerUrl": "https://static.actugaming.net/media/2020/01/animal-crossing-new-horizons-key-art-e1577990302845.jpg" },
       "variants": [{
         "id": "switch",
         "originalPlatform": "SWITCH",
-        "runtimeCandidates": [{ "runtimeId": "switch-runtime", "priority": 10, "compatibility": "EXPERIMENTAL" }],
+        "runtimeCandidates": [{ "runtimeId": "switch-runtime", "priority": 10, "compatibility": "SUPPORTED" }],
         "preferredRuntime": "switch-runtime",
         "sourceRequirements": [
           { "id": "compatible-game-data", "kind": "GAME_IMAGE", "description": "Compatible Animal Crossing: New Horizons game data supplied by the user.", "required": true },

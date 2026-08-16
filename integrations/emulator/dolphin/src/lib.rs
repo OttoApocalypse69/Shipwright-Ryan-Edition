@@ -1,5 +1,8 @@
-//! Generic external Switch runtime provider. Concrete implementations are
-//! user-configured descriptions; games depend only on the `switch-runtime` id.
+//! External Dolphin runtime integration for Wii game images.
+//!
+//! SRE accepts a Dolphin executable selected by the user and passes through
+//! the user's legally dumped game image. It never downloads or redistributes
+//! Dolphin, game data, keys, firmware, or console material.
 
 use sre_core::{GameDefinition, OriginalPlatform, RuntimeId};
 use sre_runtime::{
@@ -15,83 +18,40 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 
-const RUNTIME_ID: &str = "switch-runtime";
+const RUNTIME_ID: &str = "dolphin-compatible";
+const PLAYABLE_THRESHOLD_MS: u64 = 5_000;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ExternalSwitchImplementation {
-    pub implementation_id: String,
-    pub display_name: String,
-    pub executable: PathBuf,
-    pub version_arguments: Vec<String>,
-    pub launch_arguments: Vec<String>,
-    pub save_root: Option<PathBuf>,
-    pub playable_threshold_ms: u64,
-}
-
-impl ExternalSwitchImplementation {
-    pub fn manually_configured(
-        implementation_id: impl Into<String>,
-        display_name: impl Into<String>,
-        executable: PathBuf,
-    ) -> Self {
-        Self {
-            implementation_id: implementation_id.into(),
-            display_name: display_name.into(),
-            executable,
-            version_arguments: vec!["--version".to_owned()],
-            // Ryujinx/Ryubing builds may still attempt the retired GitHub
-            // release endpoint even when their persisted setting says not to
-            // check. Keep managed game launches offline and avoid showing an
-            // update-check error before the game window opens.
-            launch_arguments: vec!["--hide-updates".to_owned()],
-            save_root: None,
-            playable_threshold_ms: 5_000,
-        }
-    }
-}
-
-pub struct SwitchRuntimeProvider {
+pub struct DolphinRuntimeAdapter {
     id: RuntimeId,
-    implementation: Option<ExternalSwitchImplementation>,
+    executable: Option<PathBuf>,
     children: Mutex<BTreeMap<u32, Child>>,
 }
 
-impl SwitchRuntimeProvider {
-    pub fn new(implementation: Option<ExternalSwitchImplementation>) -> Self {
+impl DolphinRuntimeAdapter {
+    pub fn new(executable: Option<PathBuf>) -> Self {
         Self {
             id: RuntimeId::new(RUNTIME_ID).expect("built-in runtime id is valid"),
-            implementation,
+            executable,
             children: Mutex::new(BTreeMap::new()),
         }
     }
 
-    fn implementation(&self) -> Result<&ExternalSwitchImplementation, RuntimeError> {
-        self.implementation
-            .as_ref()
-            .filter(|value| value.executable.is_file())
+    fn executable(&self) -> Result<&Path, RuntimeError> {
+        self.executable
+            .as_deref()
+            .filter(|path| path.is_file())
             .ok_or_else(|| {
                 RuntimeError::new(
                     RuntimeErrorCode::RuntimeNotInstalled,
-                    "Select an external Switch runtime executable in SRE setup.",
+                    "Select a Dolphin-compatible runtime executable in SRE game setup.",
                 )
             })
     }
 
-    fn source_supported(game: &GameDefinition, source: &GameSource) -> bool {
-        game.variants.iter().any(|variant| {
-            variant.id == source.variant_id
-                && variant.original_platform == OriginalPlatform::Switch
-                && variant
-                    .runtime_candidates
-                    .iter()
-                    .any(|candidate| candidate.runtime_id.as_str() == RUNTIME_ID)
-        })
-    }
-
     fn version(&self) -> Option<String> {
-        let implementation = self.implementation.as_ref()?;
-        let output = Command::new(&implementation.executable)
-            .args(&implementation.version_arguments)
+        let executable = self.executable.as_deref()?;
+        let output = Command::new(executable)
+            .arg("--version")
             .stdin(Stdio::null())
             .output()
             .ok()?;
@@ -100,51 +60,72 @@ impl SwitchRuntimeProvider {
         } else {
             &output.stdout
         };
-        let value = String::from_utf8_lossy(bytes);
-        let first = value.lines().next()?.trim();
-        (!first.is_empty()).then(|| first.to_owned())
+        let first = String::from_utf8_lossy(bytes)
+            .lines()
+            .next()?
+            .trim()
+            .to_owned();
+        (!first.is_empty()).then_some(first)
+    }
+
+    fn source_supported(game: &GameDefinition, source: &GameSource) -> bool {
+        game.variants.iter().any(|variant| {
+            variant.id == source.variant_id
+                && variant.original_platform == OriginalPlatform::Wii
+                && variant
+                    .runtime_candidates
+                    .iter()
+                    .any(|candidate| candidate.runtime_id.as_str() == RUNTIME_ID)
+        })
+    }
+
+    fn supported_image(path: &Path) -> bool {
+        path.is_file()
+            && path.extension().is_some_and(|extension| {
+                matches!(
+                    extension.to_string_lossy().to_ascii_lowercase().as_str(),
+                    "iso" | "wbfs" | "rvz" | "gcz" | "wia" | "ciso"
+                )
+            })
     }
 }
 
-impl RuntimeProvider for SwitchRuntimeProvider {
+impl RuntimeProvider for DolphinRuntimeAdapter {
     fn id(&self) -> &RuntimeId {
         &self.id
     }
+
     fn display_name(&self) -> &str {
-        "External Switch runtime"
+        "Dolphin-compatible Wii runtime"
     }
+
     fn kind(&self) -> RuntimeKind {
-        RuntimeKind::ExternalRuntime
+        RuntimeKind::ExternalEmulator
     }
+
     fn distribution_mode(&self) -> DistributionMode {
-        DistributionMode::ManualOnly
+        DistributionMode::External
     }
+
     fn capabilities(&self) -> RuntimeCapabilities {
         RuntimeCapabilities {
             native: false,
             external_process: true,
             supports_overlay: true,
             supports_semantic_events: false,
-            supports_save_detection: self
-                .implementation
-                .as_ref()
-                .is_some_and(|value| value.save_root.is_some()),
+            supports_save_detection: true,
             supports_controller_config: true,
-            supports_mods: false,
+            supports_mods: true,
         }
     }
 
     fn detect(&self) -> Result<DetectionResult, RuntimeError> {
-        let Some(implementation) = self
-            .implementation
-            .as_ref()
-            .filter(|value| value.executable.is_file())
-        else {
+        let Some(executable) = self.executable.as_ref().filter(|path| path.is_file()) else {
             return Ok(DetectionResult {
                 runtime_id: self.id.clone(),
                 status: DetectionStatus::Missing,
                 installation: None,
-                summary: "No external Switch runtime implementation is configured.".to_owned(),
+                summary: "No Dolphin-compatible runtime executable is configured.".to_owned(),
             });
         };
         Ok(DetectionResult {
@@ -152,20 +133,13 @@ impl RuntimeProvider for SwitchRuntimeProvider {
             status: DetectionStatus::Available,
             installation: Some(RuntimeInstallation {
                 runtime_id: self.id.clone(),
-                root: implementation
-                    .executable
-                    .parent()
-                    .unwrap_or(Path::new("."))
-                    .to_owned(),
-                executable: Some(implementation.executable.clone()),
+                root: executable.parent().unwrap_or(Path::new(".")).to_owned(),
+                executable: Some(executable.clone()),
                 version: self
                     .version()
                     .or_else(|| Some("version unavailable".to_owned())),
             }),
-            summary: format!(
-                "{} is configured as the external Switch implementation.",
-                implementation.display_name
-            ),
+            summary: "User-managed Dolphin-compatible runtime detected.".to_owned(),
         })
     }
 
@@ -184,14 +158,14 @@ impl RuntimeProvider for SwitchRuntimeProvider {
             status,
             detected_version: installation.version.clone(),
             summary: match status {
-                VersionStatus::Supported => "The external Switch runtime reported a version.",
+                VersionStatus::Supported => "The selected Dolphin runtime reported a version.",
                 VersionStatus::KnownBroken => {
-                    "This configured runtime version is classified as broken."
+                    "The selected Dolphin runtime is classified as known broken."
                 }
                 VersionStatus::Unknown => {
-                    "Version reporting is unavailable; compatibility remains experimental."
+                    "The runtime did not report a version; compatibility remains experimental."
                 }
-                VersionStatus::Unsupported => "This runtime version is unsupported.",
+                VersionStatus::Unsupported => "The Dolphin runtime version is unsupported.",
             }
             .to_owned(),
         })
@@ -204,15 +178,16 @@ impl RuntimeProvider for SwitchRuntimeProvider {
     ) -> Result<SourceValidation, RuntimeError> {
         let valid = Self::source_supported(game, source)
             && !source.synthetic_fixture
-            && source.path.is_file();
+            && Self::supported_image(&source.path);
         Ok(SourceValidation {
             valid,
             detected_variant: valid.then(|| source.variant_id.clone()),
             summary: if valid {
-                "The user-selected Switch game file exists and the catalog supports this variant."
+                "A Wii game image compatible with Dolphin was found."
             } else {
-                "Select a legal game file for a cataloged Switch variant. SRE performs no decryption or acquisition."
-            }.to_owned(),
+                "Select a legal Wii game image (.iso, .wbfs, .rvz, .gcz, .wia, or .ciso)."
+            }
+            .to_owned(),
         })
     }
 
@@ -225,7 +200,7 @@ impl RuntimeProvider for SwitchRuntimeProvider {
         if !self.validate_source(game, source)?.valid {
             return Err(RuntimeError::new(
                 RuntimeErrorCode::GameSourceInvalid,
-                "The Switch game source could not be registered.",
+                "The Wii game image could not be validated for Dolphin.",
             ));
         }
         Ok(PreparedGame {
@@ -240,13 +215,13 @@ impl RuntimeProvider for SwitchRuntimeProvider {
     fn verify(&self, installation: &GameInstallation) -> Result<VerificationResult, RuntimeError> {
         let ready = installation.runtime_id == self.id
             && !installation.synthetic_fixture
-            && installation.root.is_file();
+            && Self::supported_image(&installation.root);
         Ok(VerificationResult {
             ready,
             summary: if ready {
-                "Switch game source is registered."
+                "Dolphin Wii game image is registered."
             } else {
-                "Registered Switch game source is unavailable."
+                "Registered Dolphin Wii game image is unavailable."
             }
             .to_owned(),
         })
@@ -260,7 +235,7 @@ impl RuntimeProvider for SwitchRuntimeProvider {
         if !self.verify(installation)?.ready {
             return Err(RuntimeError::new(
                 RuntimeErrorCode::GameNotConfigured,
-                "Register a valid Switch game source before launch.",
+                "Register a valid Wii game image before launch.",
             ));
         }
         if config
@@ -270,7 +245,7 @@ impl RuntimeProvider for SwitchRuntimeProvider {
         {
             return Err(RuntimeError::new(
                 RuntimeErrorCode::RuntimeConfigurationInvalid,
-                "Unsupported Switch runtime configuration key.",
+                "Unsupported Dolphin runtime configuration key.",
             ));
         }
         Ok(())
@@ -280,23 +255,22 @@ impl RuntimeProvider for SwitchRuntimeProvider {
         if request.mode != LaunchMode::Authorized || request.installation.synthetic_fixture {
             return Err(RuntimeError::new(
                 RuntimeErrorCode::SyntheticLaunchForbidden,
-                "The external Switch adapter only launches authorized user sources.",
+                "The Dolphin adapter only launches authorized user sources.",
             ));
         }
         self.configure(&request.installation, &request.config)?;
-        let implementation = self.implementation()?;
-        let mut command = Command::new(&implementation.executable);
+        let executable = self.executable()?;
+        let mut command = Command::new(executable);
         command
-            .args(&implementation.launch_arguments)
-            .arg(&request.installation.root);
-        command
+            .arg("-e")
+            .arg(&request.installation.root)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null());
         let child = command.spawn().map_err(|error| {
             RuntimeError::new(
                 RuntimeErrorCode::RuntimeLaunchFailed,
-                "The external Switch runtime could not be started.",
+                "The Dolphin-compatible runtime could not be started.",
             )
             .with_technical_details(error.to_string())
         })?;
@@ -374,19 +348,14 @@ impl RuntimeProvider for SwitchRuntimeProvider {
         session: &RuntimeSession,
     ) -> Result<PlayableDetection, RuntimeError> {
         let observed = self.observe_process(session)?;
-        let threshold = self
-            .implementation
-            .as_ref()
-            .map(|value| value.playable_threshold_ms)
-            .unwrap_or(5_000);
         let elapsed = session
             .started_at_unix_ms
             .map(|started| observed.observed_at_unix_ms.saturating_sub(started))
             .unwrap_or(0);
         Ok(PlayableDetection {
-            playable: observed.running && elapsed >= threshold,
+            playable: observed.running && elapsed >= PLAYABLE_THRESHOLD_MS,
             precision: PlayablePrecision::Approximate,
-            method: format!("process alive plus {threshold} ms configured startup threshold"),
+            method: format!("process alive plus {PLAYABLE_THRESHOLD_MS} ms startup threshold"),
             observed_at_unix_ms: observed.observed_at_unix_ms,
         })
     }
@@ -395,16 +364,14 @@ impl RuntimeProvider for SwitchRuntimeProvider {
         &self,
         _installation: &GameInstallation,
     ) -> Result<Option<SaveLocation>, RuntimeError> {
-        Ok(self
-            .implementation
-            .as_ref()
-            .and_then(|value| value.save_root.clone())
-            .filter(|path| path.exists())
-            .map(|path| SaveLocation {
-                path,
-                confidence: PlayablePrecision::Approximate,
-                summary: "User-configured external runtime save root.".to_owned(),
-            }))
+        let path = std::env::var_os("APPDATA")
+            .map(PathBuf::from)
+            .map(|root| root.join("Dolphin Emulator/Wii/title"));
+        Ok(path.filter(|path| path.exists()).map(|path| SaveLocation {
+            path,
+            confidence: PlayablePrecision::Approximate,
+            summary: "Dolphin's per-user Wii save root detected.".to_owned(),
+        }))
     }
 
     fn diagnostics(
@@ -413,34 +380,38 @@ impl RuntimeProvider for SwitchRuntimeProvider {
     ) -> Result<Vec<RuntimeDiagnostic>, RuntimeError> {
         let detection = self.detect()?;
         let mut output = vec![RuntimeDiagnostic {
-            id: "switch-runtime".to_owned(),
+            id: "dolphin-runtime".to_owned(),
             severity: if detection.status == DetectionStatus::Available {
                 DiagnosticSeverity::Info
             } else {
                 DiagnosticSeverity::Error
             },
             summary: detection.summary,
-            remediation: (detection.status != DetectionStatus::Available)
-                .then(|| "Choose an external Switch runtime executable in SRE setup.".to_owned()),
+            remediation: (detection.status != DetectionStatus::Available).then(|| {
+                "Choose a Dolphin-compatible runtime executable in game setup.".to_owned()
+            }),
         }];
         if let Some(installation) = installation {
             let result = self.verify(installation)?;
             output.push(RuntimeDiagnostic {
-                id: "switch-game-source".to_owned(),
+                id: "dolphin-game-source".to_owned(),
                 severity: if result.ready {
                     DiagnosticSeverity::Info
                 } else {
                     DiagnosticSeverity::Error
                 },
                 summary: result.summary,
-                remediation: (!result.ready)
-                    .then(|| "Select the legal game file again; it may have moved.".to_owned()),
+                remediation: (!result.ready).then(|| {
+                    "Select a legal Wii game image (.iso, .wbfs, .rvz, .gcz, .wia, or .ciso)."
+                        .to_owned()
+                }),
             });
         }
         output.push(RuntimeDiagnostic {
-            id: "switch-playable-method".to_owned(),
+            id: "dolphin-playable-method".to_owned(),
             severity: DiagnosticSeverity::Warning,
-            summary: "Playable detection is approximate for external Switch runtimes.".to_owned(),
+            summary: "Playable detection is approximate for the external Dolphin runtime."
+                .to_owned(),
             remediation: None,
         });
         Ok(output)
@@ -463,45 +434,21 @@ mod tests {
     const CATALOG: &str = include_str!("../../../../packages/game-catalog/catalog.v1.json");
 
     #[test]
-    fn one_provider_validates_all_four_switch_games() {
+    fn validates_a_user_supplied_skyward_sword_image() {
         let temp = tempfile::tempdir().unwrap();
-        let source_path = temp.path().join("user-game.nsp");
-        fs::write(&source_path, b"fixture").unwrap();
+        let image = temp.path().join("skyward-sword.rvz");
+        fs::write(&image, b"fixture").unwrap();
         let catalog = GameCatalog::from_json(CATALOG).unwrap();
-        let provider = SwitchRuntimeProvider::new(None);
-        for id in [
-            "zelda-totk",
-            "zelda-echoes-of-wisdom",
-            "animal-crossing-new-horizons",
-            "zelda-skyward-sword",
-        ] {
-            let game = catalog.game(&GameId::new(id).unwrap()).unwrap();
-            let source = GameSource {
-                variant_id: GameVariantId::new("switch").unwrap(),
-                path: source_path.clone(),
-                synthetic_fixture: false,
-            };
-            assert!(
-                provider.validate_source(game, &source).unwrap().valid,
-                "{id}"
-            );
-        }
-    }
-
-    #[test]
-    fn rejects_non_switch_games_without_game_specific_branches() {
-        let temp = tempfile::tempdir().unwrap();
-        let source_path = temp.path().join("user-game.nsp");
-        fs::write(&source_path, b"fixture").unwrap();
-        let catalog = GameCatalog::from_json(CATALOG).unwrap();
+        let game = catalog
+            .game(&GameId::new("zelda-skyward-sword").unwrap())
+            .unwrap();
         let source = GameSource {
-            variant_id: GameVariantId::new("n64").unwrap(),
-            path: source_path,
+            variant_id: GameVariantId::new("wii").unwrap(),
+            path: image,
             synthetic_fixture: false,
         };
-        let game = catalog.game(&GameId::new("zelda-oot").unwrap()).unwrap();
         assert!(
-            !SwitchRuntimeProvider::new(None)
+            DolphinRuntimeAdapter::new(None)
                 .validate_source(game, &source)
                 .unwrap()
                 .valid
@@ -509,12 +456,24 @@ mod tests {
     }
 
     #[test]
-    fn managed_launch_suppresses_retired_update_endpoint() {
-        let implementation = ExternalSwitchImplementation::manually_configured(
-            "managed-ryujinx-canary",
-            "Managed Ryujinx Canary",
-            PathBuf::from("Ryujinx.exe"),
+    fn rejects_non_wii_game_images() {
+        let temp = tempfile::tempdir().unwrap();
+        let image = temp.path().join("skyward-sword.nsp");
+        fs::write(&image, b"fixture").unwrap();
+        let catalog = GameCatalog::from_json(CATALOG).unwrap();
+        let game = catalog
+            .game(&GameId::new("zelda-skyward-sword").unwrap())
+            .unwrap();
+        let source = GameSource {
+            variant_id: GameVariantId::new("wii").unwrap(),
+            path: image,
+            synthetic_fixture: false,
+        };
+        assert!(
+            !DolphinRuntimeAdapter::new(None)
+                .validate_source(game, &source)
+                .unwrap()
+                .valid
         );
-        assert_eq!(implementation.launch_arguments, vec!["--hide-updates"]);
     }
 }

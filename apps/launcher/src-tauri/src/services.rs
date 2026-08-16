@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use sre_achievements::{AchievementEngine, AchievementEvent};
 use sre_device::DeviceStore;
 use sre_diagnostics::{DoctorReport, export_sanitized, run_doctor};
+use sre_dolphin_adapter::DolphinRuntimeAdapter;
 use sre_entitlement::{EntitlementLease, LeaseStatus, LeaseVerifier, SignedLease, allows_game};
 use sre_library::{LibraryStore, SessionHistory, SessionStore};
 use sre_overlay::{OverlayNotification, OverlayQueue};
@@ -17,7 +18,7 @@ use sre_wiiu_adapter::WiiURuntimeAdapter;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::io::{Read, Write};
-use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{
@@ -43,7 +44,6 @@ use windows::{
     core::PCWSTR,
 };
 
-const LOCAL_FTEP_STARTUP_TIMEOUT: Duration = Duration::from_secs(45);
 #[cfg(windows)]
 const LOCAL_FTEP_PACKAGE_MANAGER: &str = "pnpm.cmd";
 #[cfg(not(windows))]
@@ -228,11 +228,11 @@ impl LocalServices {
             }
         };
 
-        if let Err(error) = wait_for_local_ftep(&mut child, port, &log_path) {
-            stop_local_ftep_process(&mut child);
-            return Err(error);
-        }
-
+        // Do not wait for Next.js here. This method runs from Tauri's setup
+        // hook, and waiting for the local FTEP health check would leave the
+        // native window white and unresponsive for up to 45 seconds. The
+        // managed child is retained and health is checked when a command uses
+        // the service; the launcher UI can render immediately.
         *managed = Some(ManagedLocalFtep {
             child,
             web_url,
@@ -304,49 +304,6 @@ fn reserve_loopback_port() -> Result<u16, String> {
         .and_then(|listener| listener.local_addr())
         .map(|address| address.port())
         .map_err(|error| format!("FICSIT-0002: Cannot reserve a local FTEP port: {error}"))
-}
-
-fn wait_for_local_ftep(child: &mut Child, port: u16, log_path: &Path) -> Result<(), String> {
-    let deadline = Instant::now() + LOCAL_FTEP_STARTUP_TIMEOUT;
-    while Instant::now() < deadline {
-        if child
-            .try_wait()
-            .map_err(|error| format!("FICSIT-0002: Cannot inspect local FTEP: {error}"))?
-            .is_some()
-        {
-            return Err(format!(
-                "FICSIT-0002: Local FTEP stopped during startup. See {}.",
-                log_path.display()
-            ));
-        }
-        if local_ftep_is_healthy(port) {
-            return Ok(());
-        }
-        std::thread::sleep(Duration::from_millis(200));
-    }
-    Err(format!(
-        "FICSIT-0002: Local FTEP did not become ready. See {}.",
-        log_path.display()
-    ))
-}
-
-fn local_ftep_is_healthy(port: u16) -> bool {
-    let address = SocketAddr::from(([127, 0, 0, 1], port));
-    let Ok(mut stream) = TcpStream::connect_timeout(&address, Duration::from_millis(500)) else {
-        return false;
-    };
-    let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
-    if stream
-        .write_all(b"GET /sign-in HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n")
-        .is_err()
-    {
-        return false;
-    }
-    let mut response = [0_u8; 64];
-    stream
-        .read(&mut response)
-        .map(|size| String::from_utf8_lossy(&response[..size]).starts_with("HTTP/1.1 200"))
-        .unwrap_or(false)
 }
 
 fn stop_local_ftep_process(child: &mut Child) {
@@ -949,12 +906,21 @@ fn launch_registered_game_blocking(
                 (provider, session)
             }
             "switch-runtime" => {
-                let provider = Arc::new(SwitchRuntimeProvider::new(
-                    Some(ExternalSwitchImplementation::manually_configured(
+                let provider = Arc::new(SwitchRuntimeProvider::new(Some(
+                    ExternalSwitchImplementation::manually_configured(
                         "managed-ryujinx-canary",
                         "Managed Ryujinx Canary runtime",
                         crate::importer::managed_ryujinx_executable(&app)?,
-                    )),
+                    ),
+                )));
+                let session = provider
+                    .launch(launch_request)
+                    .map_err(|error| error.to_string())?;
+                (provider, session)
+            }
+            "dolphin-compatible" => {
+                let provider = Arc::new(DolphinRuntimeAdapter::new(
+                    installation.runtime_executable.clone(),
                 ));
                 let session = provider
                     .launch(launch_request)

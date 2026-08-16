@@ -6,7 +6,7 @@ Date: 2026-08-13
 
 The repository is now a provider-oriented SRE/FTEP monorepo. SRE owns the Windows desktop experience, local data, runtime orchestration, signed-lease verification, sessions, achievements, overlay, diagnostics, and updates. FTEP owns browser authentication, device registration, Accord/policy records, entitlement issuance, compatibility administration, release discovery, audit records, and server-only signing.
 
-The catalog contains the six current priority titles. Runtime providers implement one generic contract. Shipwright and the bundled Two Ship runtime provide supported native paths for OoT and Majora's Mask; the Wii U adapter accepts a user-selected Cemu-compatible runtime; one generic Switch adapter serves TOTK, Echoes of Wisdom, and Animal Crossing without duplicated emulator subsystems. No adapter downloads proprietary game content or external runtimes.
+The catalog contains the seven current priority titles. Runtime providers implement one generic contract. Shipwright and the bundled Two Ship runtime provide supported native paths for OoT and Majora's Mask; the Wii U adapter accepts the managed Cemu-compatible runtime; the preferred Skyward Sword HD path uses the managed Ryujinx Canary Switch adapter, with the original Wii/Dolphin path retained as a secondary variant; one generic Switch adapter serves the Switch catalog without duplicated emulator subsystems. No adapter downloads proprietary game content or external runtimes.
 
 The launcher now has the eight required first-run screens, browser account connection, random local identity, canonical Accord ratification, catalog/runtime/system checks, searchable/filterable library status, per-game setup, signed authorized launches, process-backed sessions, playable detection, ten offline-first achievements, a separate click-through overlay, and sanitized SRE Doctor export.
 
@@ -20,10 +20,11 @@ Release tooling builds per-machine NSIS, portable ZIP, SHA-256 checksums, a rele
 |---|---|---|
 | Ocarina of Time | Shipwright native | Supported |
 | Majora's Mask | bundled Two Ship native runtime | Supported |
-| Breath of the Wild | external Cemu-compatible Wii U adapter | Experimental |
-| Tears of the Kingdom | external generic Switch adapter | Experimental |
-| Echoes of Wisdom | external generic Switch adapter | Investigating |
-| Animal Crossing: New Horizons | external generic Switch adapter | Experimental |
+| Skyward Sword HD | managed Ryujinx Canary Switch adapter | Supported |
+| Breath of the Wild | managed Cemu-compatible Wii U adapter | Supported |
+| Tears of the Kingdom | managed Ryujinx Canary Switch adapter | Supported |
+| Echoes of Wisdom | managed Ryujinx Canary Switch adapter | Supported |
+| Animal Crossing: New Horizons | managed Ryujinx Canary Switch adapter | Supported |
 
 `Supported` applies to one exact game/variant/runtime combination. Entitlement eligibility never changes this technical label.
 

@@ -43,38 +43,45 @@ struct RuntimeTarget {
     settings_directory: PathBuf,
     description: &'static str,
     launch_arguments: &'static [&'static str],
+    managed: bool,
 }
 
 pub(crate) fn inventory(app: &tauri::AppHandle) -> Result<Vec<EmulatorInfo>, String> {
-    ["shipwright", "two-ship", "cemu", "ryujinx-canary"]
-        .into_iter()
-        .map(|runtime_id| {
-            let target = runtime_target(app, runtime_id)?;
-            let installed = target
+    [
+        "shipwright",
+        "two-ship",
+        "cemu",
+        "ryujinx-canary",
+        "dolphin-compatible",
+    ]
+    .into_iter()
+    .map(|runtime_id| {
+        let target = runtime_target(app, runtime_id)?;
+        let installed = target
+            .executable
+            .as_ref()
+            .is_some_and(|path| path.is_file());
+        Ok(EmulatorInfo {
+            id: target.id.to_owned(),
+            name: target.name.to_owned(),
+            platform: target.platform.to_owned(),
+            version: target.version.to_owned(),
+            status: if installed { "READY" } else { "MISSING" }.to_owned(),
+            managed: target.managed,
+            executable_path: target
                 .executable
                 .as_ref()
-                .is_some_and(|path| path.is_file());
-            Ok(EmulatorInfo {
-                id: target.id.to_owned(),
-                name: target.name.to_owned(),
-                platform: target.platform.to_owned(),
-                version: target.version.to_owned(),
-                status: if installed { "READY" } else { "MISSING" }.to_owned(),
-                managed: true,
-                executable_path: target
-                    .executable
-                    .as_ref()
-                    .map(|path| path.display().to_string()),
-                runtime_directory: target
-                    .executable
-                    .as_ref()
-                    .and_then(|path| path.parent())
-                    .map(|path| path.display().to_string()),
-                settings_directory: target.settings_directory.display().to_string(),
-                description: target.description.to_owned(),
-            })
+                .map(|path| path.display().to_string()),
+            runtime_directory: target
+                .executable
+                .as_ref()
+                .and_then(|path| path.parent())
+                .map(|path| path.display().to_string()),
+            settings_directory: target.settings_directory.display().to_string(),
+            description: target.description.to_owned(),
         })
-        .collect()
+    })
+    .collect()
 }
 
 #[tauri::command]
@@ -204,6 +211,7 @@ fn runtime_target(app: &tauri::AppHandle, runtime_id: &str) -> Result<RuntimeTar
                 settings_directory: runtime_directory,
                 description: "Native Ocarina of Time runtime and its local settings.",
                 launch_arguments: &[],
+                managed: true,
             })
         }
         "two-ship" => {
@@ -228,6 +236,7 @@ fn runtime_target(app: &tauri::AppHandle, runtime_id: &str) -> Result<RuntimeTar
                 settings_directory: roaming_settings_directory(app, "2Ship2Harkinian")?,
                 description: "Managed Majora's Mask runtime with writable local settings.",
                 launch_arguments: &[],
+                managed: true,
             })
         }
         "cemu" => {
@@ -247,6 +256,7 @@ fn runtime_target(app: &tauri::AppHandle, runtime_id: &str) -> Result<RuntimeTar
                 settings_directory: roaming_settings_directory(app, "Cemu")?,
                 description: "Managed Cemu runtime for Breath of the Wild and Wii U settings.",
                 launch_arguments: &[],
+                managed: true,
             })
         }
         "ryujinx-canary" => {
@@ -268,6 +278,27 @@ fn runtime_target(app: &tauri::AppHandle, runtime_id: &str) -> Result<RuntimeTar
                 // Canary's retired update endpoint can block startup, so keep
                 // the same safe flag used by managed game launches.
                 launch_arguments: &["--hide-updates"],
+                managed: true,
+            })
+        }
+        "dolphin-compatible" => {
+            let executable = importer::detected_dolphin_executable();
+            let runtime_directory = executable
+                .as_ref()
+                .and_then(|path| path.parent())
+                .map(PathBuf::from)
+                .unwrap_or_else(|| app_data.join("runtimes/dolphin"));
+            Ok(RuntimeTarget {
+                id: "dolphin-compatible",
+                name: "Dolphin",
+                platform: "Wii",
+                version: "External",
+                executable,
+                runtime_directory,
+                settings_directory: roaming_settings_directory(app, "Dolphin Emulator")?,
+                description: "User-selected Dolphin runtime for Wii game images.",
+                launch_arguments: &[],
+                managed: false,
             })
         }
         _ => Err(format!(

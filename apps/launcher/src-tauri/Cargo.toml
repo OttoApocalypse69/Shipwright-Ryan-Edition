@@ -28,6 +28,7 @@ sre-shipwright-adapter = { path = "../../../integrations/native/shipwright" }
 sre-two-ship-adapter = { path = "../../../integrations/native/two-ship" }
 sre-wiiu-adapter = { path = "../../../integrations/emulator/wiiu" }
 sre-switch-adapter = { path = "../../../integrations/emulator/switch" }
+sre-dolphin-adapter = { path = "../../../integrations/emulator/dolphin" }
 fs2 = "0.4.3"
 base64.workspace = true
 ed25519-dalek.workspace = true

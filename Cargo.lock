@@ -3398,6 +3398,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sre-dolphin-adapter"
+version = "0.1.0"
+dependencies = [
+ "sre-core",
+ "sre-runtime",
+ "tempfile",
+]
+
+[[package]]
 name = "sre-entitlement"
 version = "0.1.0"
 dependencies = [
@@ -3423,6 +3432,7 @@ dependencies = [
  "sre-core",
  "sre-device",
  "sre-diagnostics",
+ "sre-dolphin-adapter",
  "sre-entitlement",
  "sre-library",
  "sre-overlay",

@@ -14,4 +14,4 @@ Required behavior:
 8. Redact or hash user paths in diagnostics.
 9. Test success plus every failure fixture without proprietary assets.
 
-One generic Switch provider serves all Switch catalog titles. Do not fork a provider per game unless the runtime protocol is genuinely different. External implementations are user configured and are not endorsed or redistributed by SRE.
+One generic Switch provider serves all Switch catalog titles, while the Dolphin-compatible provider serves Wii images. Do not fork a provider per game unless the runtime protocol is genuinely different. External implementations are user configured and are not endorsed or redistributed by SRE.

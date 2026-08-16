@@ -15,6 +15,7 @@ fn bundled_catalog_is_semantically_valid_and_has_initial_targets_in_order() {
         [
             "zelda-oot",
             "zelda-mm",
+            "zelda-skyward-sword",
             "zelda-botw",
             "zelda-totk",
             "zelda-echoes-of-wisdom",
@@ -50,22 +51,54 @@ fn only_verified_paths_are_marked_supported() {
         CompatibilityState::Supported
     );
 
-    let eow = catalog.game(&GameId::new("zelda-echoes-of-wisdom").unwrap()).unwrap();
+    let eow = catalog
+        .game(&GameId::new("zelda-echoes-of-wisdom").unwrap())
+        .unwrap();
     assert_eq!(
         eow.variants[0].runtime_candidates[0].compatibility,
         CompatibilityState::Supported
     );
 
-    for game in catalog
-        .games
-        .iter()
-        .filter(|game| {
-            !matches!(
-                game.id.as_str(),
-                "zelda-oot" | "zelda-mm" | "zelda-botw" | "zelda-totk" | "zelda-echoes-of-wisdom"
-            )
-        })
-    {
+    let animal_crossing = catalog
+        .game(&GameId::new("animal-crossing-new-horizons").unwrap())
+        .unwrap();
+    assert_eq!(
+        animal_crossing.variants[0].runtime_candidates[0].compatibility,
+        CompatibilityState::Supported
+    );
+
+    let skyward_sword = catalog
+        .game(&GameId::new("zelda-skyward-sword").unwrap())
+        .unwrap();
+    assert_eq!(
+        skyward_sword.variants[0].runtime_candidates[0].compatibility,
+        CompatibilityState::Supported
+    );
+    assert_eq!(
+        skyward_sword.variants[0].original_platform,
+        sre_core::OriginalPlatform::Switch
+    );
+    assert_eq!(
+        skyward_sword.variants[0]
+            .preferred_runtime
+            .as_ref()
+            .unwrap()
+            .as_str(),
+        "switch-runtime"
+    );
+
+    for game in catalog.games.iter().filter(|game| {
+        !matches!(
+            game.id.as_str(),
+            "zelda-oot"
+                | "zelda-mm"
+                | "zelda-botw"
+                | "zelda-totk"
+                | "zelda-echoes-of-wisdom"
+                | "animal-crossing-new-horizons"
+                | "zelda-skyward-sword"
+        )
+    }) {
         assert!(
             game.variants
                 .iter()
