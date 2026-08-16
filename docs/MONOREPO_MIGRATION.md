@@ -696,3 +696,17 @@ change and record verification evidence before treating a phase as complete.
   verification with the managed Ryujinx Canary path.
 - Cemu remains scoped to Wii U titles such as Breath of the Wild; it is not a
   valid runtime for either the Wii or Switch release of Skyward Sword.
+
+### Generated-data retention and cleanup — 2026-08-17
+
+- Managed Ryujinx log directories now retain recent diagnostics while pruning
+  stale logs older than thirty minutes. At most five stale logs are retained,
+  with a 64 MiB aggregate budget; recent files are left untouched so an active
+  emulator process is never interrupted. Cleanup is best-effort and cannot
+  block game launch when a log is locked.
+- Added `scripts/clean-generated-data.ps1` as a preview-first cleanup tool for
+  old verification targets, CMake output, the web `.next` cache, and stale
+  Ryujinx logs. `-Apply` is required to remove anything. The Rust `target`
+  directory and `node_modules` are opt-in because removing them requires a
+  rebuild or dependency reinstall. ROMs, saves, keys, firmware, source, and
+  bundled runtime resources are outside its target set.

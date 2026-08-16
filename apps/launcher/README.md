@@ -66,6 +66,26 @@ window opens. SRE shows an indeterminate startup bar while it reads local
 state, and reports a retryable timeout instead of leaving a blank window if a
 native startup call does not respond.
 
+## Generated-data cleanup
+
+The checkout contains development build output, not just the launcher. Rust,
+CMake, and verification builds can leave duplicate debug symbols and libraries
+behind, while Ryujinx creates a text log for each launch. Preview reclaimable
+data with:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\clean-generated-data.ps1
+```
+
+The script is preview-only unless `-Apply` is supplied. It removes only
+rebuildable verification/CMake output and stale Ryujinx logs by default. Add
+`-IncludeRustTarget` only when you are ready to rebuild the development
+launcher; add `-RemoveNodeModules` only if you are also willing to run
+`pnpm install --frozen-lockfile` again. ROMs, saves, keys, firmware, source,
+and bundled runtime resources are never targets. The launcher also prunes old
+Ryujinx logs automatically, retaining recent diagnostics and a small bounded
+history so a stuck game cannot fill the disk.
+
 ## Emulator control
 
 Open **Emulators** from the launcher sidebar to see the managed Shipwright,

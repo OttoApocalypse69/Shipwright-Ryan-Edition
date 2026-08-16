@@ -1,10 +1,12 @@
 use crate::storage::app_data_dir;
 use serde::Deserialize;
 use sre_shipwright_adapter::{OotImportReport, OotImportRequest, ShipwrightAdapter};
+use std::cmp::Reverse;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, SystemTime};
 use tauri::Manager;
 
 #[derive(Clone)]
@@ -78,6 +80,84 @@ pub(crate) fn two_ship_executable(app: &tauri::AppHandle) -> Result<PathBuf, Str
 }
 
 const TWO_SHIP_RUNTIME_VERSION: &str = "5.0.0";
+
+// Ryujinx creates a new text log for each process and can emit an enormous
+// amount of repeated output when a title is stuck during boot. Keep recent
+// logs useful for diagnostics, but never let stale logs consume the disk.
+const RYUJINX_LOG_KEEP_COUNT: usize = 5;
+const RYUJINX_LOG_MAX_BYTES: u64 = 64 * 1024 * 1024;
+const RYUJINX_LOG_ACTIVE_WINDOW: Duration = Duration::from_secs(30 * 60);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RyujinxLogFile {
+    path: PathBuf,
+    size: u64,
+    modified: SystemTime,
+}
+
+fn ryujinx_logs_to_remove(mut logs: Vec<RyujinxLogFile>, now: SystemTime) -> Vec<PathBuf> {
+    logs.sort_by_key(|log| Reverse(log.modified));
+
+    // Never touch a log that may belong to a currently running emulator. For
+    // older logs, retain only the newest few files while staying below the
+    // total budget. An oversized stale log is deliberately removed even when
+    // it is one of the newest files; this catches runaway boot logs.
+    let mut retained_bytes = 0_u64;
+    let mut retained_old_logs = 0_usize;
+    let mut removals = Vec::new();
+    for log in logs {
+        let active = now
+            .duration_since(log.modified)
+            .map(|age| age < RYUJINX_LOG_ACTIVE_WINDOW)
+            .unwrap_or(true);
+        if active {
+            retained_bytes = retained_bytes.saturating_add(log.size);
+            continue;
+        }
+
+        let can_retain = retained_old_logs < RYUJINX_LOG_KEEP_COUNT
+            && log.size <= RYUJINX_LOG_MAX_BYTES
+            && retained_bytes.saturating_add(log.size) <= RYUJINX_LOG_MAX_BYTES;
+        if can_retain {
+            retained_old_logs += 1;
+            retained_bytes = retained_bytes.saturating_add(log.size);
+        } else {
+            removals.push(log.path);
+        }
+    }
+    removals
+}
+
+fn prune_ryujinx_logs(log_directory: &Path) {
+    let now = SystemTime::now();
+    let logs = fs::read_dir(log_directory)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let path = entry.path();
+            let is_log = path
+                .extension()
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("log"));
+            if !is_log {
+                return None;
+            }
+            let metadata = entry.metadata().ok()?;
+            Some(RyujinxLogFile {
+                path,
+                size: metadata.len(),
+                modified: metadata.modified().ok()?,
+            })
+        })
+        .collect::<Vec<_>>();
+
+    for path in ryujinx_logs_to_remove(logs, now) {
+        // Log cleanup is best-effort. A file can be locked by a still-running
+        // Ryujinx process; that must never prevent the game from launching.
+        let _ = fs::remove_file(path);
+    }
+}
 
 fn copy_two_ship_tree(source: &Path, destination: &Path) -> Result<(), String> {
     fs::create_dir_all(destination).map_err(|error| {
@@ -203,6 +283,12 @@ fn managed_ryujinx_resource_executable(
             }),
     )
     .find(|candidate| candidate.is_file())
+    .map(|executable| {
+        if let Some(publish_directory) = executable.parent() {
+            prune_ryujinx_logs(&publish_directory.join("Logs"));
+        }
+        executable
+    })
     .ok_or_else(|| missing_message.to_owned())
 }
 
@@ -292,6 +378,30 @@ pub(crate) fn cancel_game_data_import(coordinator: tauri::State<'_, ImportCoordi
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stale_ryujinx_logs_are_bounded_without_touching_recent_logs() {
+        let now = SystemTime::UNIX_EPOCH + Duration::from_secs(10_000);
+        let stale = now - Duration::from_secs(RYUJINX_LOG_ACTIVE_WINDOW.as_secs() + 1);
+        let recent = now - Duration::from_secs(10);
+        let removals = ryujinx_logs_to_remove(
+            vec![
+                RyujinxLogFile {
+                    path: PathBuf::from("runaway.log"),
+                    size: RYUJINX_LOG_MAX_BYTES + 1,
+                    modified: stale,
+                },
+                RyujinxLogFile {
+                    path: PathBuf::from("recent.log"),
+                    size: RYUJINX_LOG_MAX_BYTES + 1,
+                    modified: recent,
+                },
+            ],
+            now,
+        );
+
+        assert_eq!(removals, vec![PathBuf::from("runaway.log")]);
+    }
 
     #[test]
     fn project_root_contains_shipwright_sources() {
