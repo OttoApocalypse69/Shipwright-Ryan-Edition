@@ -82,6 +82,11 @@ fn run() -> Result<(), String> {
             .stdin(Stdio::null())
             .stdout(Stdio::from(log))
             .stderr(Stdio::from(vite_stderr));
+        // A moved checkout can have stale pnpm links. Allow pnpm to repair
+        // them from its local store instead of waiting for an interactive
+        // confirmation that this terminal-free helper cannot provide.
+        vite.env("CI", "true")
+            .env("PNPM_CONFIG_CONFIRM_MODULES_PURGE", "false");
         #[cfg(windows)]
         vite.creation_flags(CREATE_NO_WINDOW);
 
@@ -279,20 +284,38 @@ fn stop_process_tree(child: &mut Child) {
 }
 
 fn workspace_root() -> Result<PathBuf, String> {
-    let workspace = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../..")
-        .canonicalize()
-        .map_err(|error| format!("Cannot find the SRE workspace: {error}"))?;
-    if workspace.join("apps/launcher/package.json").is_file()
-        && workspace.join("apps/web/package.json").is_file()
-    {
-        Ok(workspace)
-    } else {
-        Err(
-            "The SRE source checkout is incomplete; apps/launcher or apps/web is missing."
-                .to_owned(),
-        )
+    // Resolve from the executable instead of `CARGO_MANIFEST_DIR`. The helper
+    // is copied to the repository root, and users commonly move that checkout
+    // to another drive after building it. A compile-time path would continue
+    // pointing at the old machine/folder and produce an opaque OS error.
+    let executable = std::env::current_exe()
+        .map_err(|error| format!("Cannot determine the SRE launcher location: {error}"))?;
+    let executable_directory = executable
+        .parent()
+        .ok_or_else(|| "The SRE launcher has no parent directory.".to_owned())?;
+
+    // The normal copy lives at <workspace>/START SRE.exe. The development
+    // binary itself lives at <workspace>/target/debug (or release), so include
+    // both locations for direct testing as well.
+    let candidates = [
+        executable_directory.to_path_buf(),
+        executable_directory.join("../.."),
+    ];
+    for candidate in candidates {
+        let Ok(workspace) = candidate.canonicalize() else {
+            continue;
+        };
+        if workspace.join("apps/launcher/package.json").is_file()
+            && workspace.join("apps/web/package.json").is_file()
+        {
+            return Ok(workspace);
+        }
     }
+
+    Err(format!(
+        "Cannot find the SRE workspace beside {}. Keep START SRE.exe at the repository root.",
+        executable.display()
+    ))
 }
 
 fn create_log(path: &Path) -> Result<File, String> {

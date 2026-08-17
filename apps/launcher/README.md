@@ -43,14 +43,16 @@ The NSIS configuration installs per machine under SRE, creates normal Start menu
 
 ## One-click local startup
 
-For this checkout's local FTEP development mode, build the small helper once:
+For this checkout's local FTEP development mode, build the backend and small
+helper together:
 
 ```powershell
 pnpm --filter @sre/launcher build:local-launcher
 ```
 
-This puts **`START SRE.exe`** at the top level of this project. Double-click
-it to open no terminal and start the same development SRE session as
+This builds the backend it launches and puts **`START SRE.exe`** at the top
+level of this project. Double-click it to open no terminal and start the same
+development SRE session as
 `pnpm --filter @sre/launcher dev`, including
 the dynamically ported local FTEP service. It is intentionally a source-checkout
 helper, not an end-user release installer; it requires the already-installed
@@ -60,6 +62,11 @@ Repeated clicks are safe: the helper holds an OS-level instance lock and exits
 successfully when SRE is already running. If a forced close left only the Vite
 frontend behind, the next click reuses that frontend and starts a fresh SRE
 window instead of showing a port-in-use error.
+
+The helper discovers the checkout beside its own executable, so moving the
+repository to another drive does not leave it pointing at the old build path.
+It also runs pnpm in non-interactive repair mode, allowing stale workspace
+links to be rebuilt from the local store instead of leaving a hidden prompt.
 
 The local FTEP development server starts in the background after the native
 window opens. SRE shows an indeterminate startup bar while it reads local

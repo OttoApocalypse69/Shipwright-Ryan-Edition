@@ -710,3 +710,17 @@ change and record verification evidence before treating a phase as complete.
   directory and `node_modules` are opt-in because removing them requires a
   rebuild or dependency reinstall. ROMs, saves, keys, firmware, source, and
   bundled runtime resources are outside its target set.
+
+### Portable local launcher rebuild — 2026-08-17
+
+- `START SRE.exe` now resolves the workspace from the folder beside the
+  executable (with a `target/debug` fallback) instead of embedding the source
+  checkout path at compile time. Moving the repository to another drive no
+  longer causes the “Cannot find the SRE workspace” startup dialog.
+- `build-local-launcher.ps1` now builds both `sre-launcher` and
+  `sre-local-launcher` before copying the terminal-free helper to the project
+  root, so a freshly moved checkout cannot be missing the backend binary.
+- The helper starts pnpm with non-interactive module-repair settings. If a
+  moved checkout has stale workspace links, pnpm can rebuild them from its
+  local store instead of waiting forever for a confirmation prompt that the
+  terminal-free launcher cannot display.

@@ -8,9 +8,9 @@ $manifestPath = Join-Path $repositoryRoot 'apps\launcher\src-tauri\Cargo.toml'
 $outputPath = Join-Path $repositoryRoot 'target\debug\sre-local-launcher.exe'
 $visibleLauncherPath = Join-Path $repositoryRoot 'START SRE.exe'
 
-& cargo build --manifest-path $manifestPath --bin sre-local-launcher --locked
+& cargo build --manifest-path $manifestPath --bin sre-launcher --bin sre-local-launcher --locked
 if ($LASTEXITCODE -ne 0) {
-    throw "Could not build the local SRE launcher (exit code $LASTEXITCODE)."
+    throw "Could not build the SRE backend and local launcher (exit code $LASTEXITCODE)."
 }
 
 Copy-Item -LiteralPath $outputPath -Destination $visibleLauncherPath -Force
