@@ -67,7 +67,17 @@ impl DeviceStore {
             identity.signing_key()?;
             return Ok(identity);
         }
-        let identity = DeviceIdentity::generate();
+        self.persist(DeviceIdentity::generate())
+    }
+
+    /// Replace this installation's random identity after an explicit account
+    /// ownership conflict. This does not fingerprint or inspect the machine;
+    /// it creates a fresh UUID/key pair and persists it atomically.
+    pub fn replace(&self) -> Result<DeviceIdentity, String> {
+        self.persist(DeviceIdentity::generate())
+    }
+
+    fn persist(&self, identity: DeviceIdentity) -> Result<DeviceIdentity, String> {
         let parent = self.path.parent().unwrap_or(Path::new("."));
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
         let mut temporary = NamedTempFile::new_in(parent).map_err(|error| error.to_string())?;
@@ -104,6 +114,9 @@ mod tests {
         let second = store.load_or_create().unwrap();
         assert_eq!(first.device_id, second.device_id);
         assert_eq!(first.public_key, second.public_key);
-        assert_ne!(first.device_id, DeviceIdentity::generate().device_id);
+        let replaced = store.replace().unwrap();
+        assert_ne!(first.device_id, replaced.device_id);
+        assert_ne!(first.public_key, replaced.public_key);
+        assert_eq!(replaced, store.load_or_create().unwrap());
     }
 }

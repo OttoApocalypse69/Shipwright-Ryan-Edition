@@ -117,8 +117,25 @@ pub(crate) struct LocalServices {
     pub(crate) overlay: OverlayQueue,
     session_write: Arc<Mutex<()>>,
     managed_local_ftep: Arc<Mutex<Option<ManagedLocalFtep>>>,
+    ftep_connection: Arc<Mutex<FtepConnectionState>>,
     active_launch_cancellation: Arc<Mutex<Option<Arc<AtomicBool>>>>,
     active_game_processes: Arc<Mutex<BTreeMap<String, u32>>>,
+}
+
+#[derive(Debug, Clone, Default)]
+enum FtepConnectionState {
+    #[default]
+    Idle,
+    Pending,
+    Connected,
+    Failed(String),
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct FtepConnectionStatus {
+    state: &'static str,
+    error: Option<String>,
 }
 
 impl Default for LocalServices {
@@ -127,6 +144,7 @@ impl Default for LocalServices {
             overlay: OverlayQueue::default(),
             session_write: Arc::new(Mutex::new(())),
             managed_local_ftep: Arc::new(Mutex::new(None)),
+            ftep_connection: Arc::new(Mutex::new(FtepConnectionState::default())),
             active_launch_cancellation: Arc::new(Mutex::new(None)),
             active_game_processes: Arc::new(Mutex::new(BTreeMap::new())),
         }
@@ -134,6 +152,40 @@ impl Default for LocalServices {
 }
 
 impl LocalServices {
+    fn set_ftep_connection_state(&self, state: FtepConnectionState) -> Result<(), String> {
+        *self
+            .ftep_connection
+            .lock()
+            .map_err(|_| "FICSIT-0002: FTEP connection state is unavailable.".to_owned())? = state;
+        Ok(())
+    }
+
+    fn ftep_connection_status(&self) -> Result<FtepConnectionStatus, String> {
+        let state = self
+            .ftep_connection
+            .lock()
+            .map_err(|_| "FICSIT-0002: FTEP connection state is unavailable.".to_owned())?
+            .clone();
+        Ok(match state {
+            FtepConnectionState::Idle => FtepConnectionStatus {
+                state: "idle",
+                error: None,
+            },
+            FtepConnectionState::Pending => FtepConnectionStatus {
+                state: "pending",
+                error: None,
+            },
+            FtepConnectionState::Connected => FtepConnectionStatus {
+                state: "connected",
+                error: None,
+            },
+            FtepConnectionState::Failed(error) => FtepConnectionStatus {
+                state: "failed",
+                error: Some(error),
+            },
+        })
+    }
+
     fn begin_game_launch(&self) -> Result<Arc<AtomicBool>, String> {
         let mut active = self.active_launch_cancellation.lock().map_err(|_| {
             "FICSIT-0001: Game launch cancellation state is unavailable.".to_owned()
@@ -213,15 +265,14 @@ impl LocalServices {
             .managed_local_ftep
             .lock()
             .map_err(|_| "FICSIT-0002: Local FTEP service state is unavailable.".to_owned())?;
-        if let Some(existing) = managed.as_mut() {
-            if existing
+        if let Some(existing) = managed.as_mut()
+            && existing
                 .child
                 .try_wait()
                 .map_err(|error| format!("FICSIT-0002: Cannot inspect local FTEP: {error}"))?
                 .is_none()
-            {
-                return Ok(());
-            }
+        {
+            return Ok(());
         }
         if let Some(existing) = managed.take() {
             existing.shutdown();
@@ -244,6 +295,7 @@ impl LocalServices {
             }
         };
         let port_text = port.to_string();
+        let local_environment = local_ftep_environment(&workspace);
         let mut child = match Command::new(LOCAL_FTEP_PACKAGE_MANAGER)
             .args([
                 "--filter",
@@ -255,6 +307,7 @@ impl LocalServices {
                 &port_text,
             ])
             .current_dir(workspace)
+            .envs(local_environment)
             .env("NEXT_PUBLIC_FTEP_BASE_URL", &web_url)
             .stdout(Stdio::from(stdout))
             .stderr(Stdio::from(log_file))
@@ -555,6 +608,42 @@ fn local_workspace_root() -> Result<PathBuf, String> {
     }
 }
 
+fn local_ftep_environment(workspace: &Path) -> BTreeMap<String, String> {
+    let path = workspace.join("apps/web/.env.local");
+    let Ok(contents) = std::fs::read_to_string(path) else {
+        return BTreeMap::new();
+    };
+    contents
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                return None;
+            }
+            let (key, raw_value) = line.split_once('=')?;
+            let key = key.trim();
+            if key.is_empty()
+                || !key
+                    .chars()
+                    .all(|character| character == '_' || character.is_ascii_alphanumeric())
+            {
+                return None;
+            }
+            let value = raw_value.trim();
+            let value = value
+                .strip_prefix('"')
+                .and_then(|value| value.strip_suffix('"'))
+                .or_else(|| {
+                    value
+                        .strip_prefix('\'')
+                        .and_then(|value| value.strip_suffix('\''))
+                })
+                .unwrap_or(value);
+            Some((key.to_owned(), value.to_owned()))
+        })
+        .collect()
+}
+
 fn reserve_loopback_port() -> Result<u16, String> {
     TcpListener::bind(("127.0.0.1", 0))
         .and_then(|listener| listener.local_addr())
@@ -651,6 +740,19 @@ pub(crate) struct PublicDeviceIdentity {
 pub(crate) fn device_identity(app: tauri::AppHandle) -> Result<PublicDeviceIdentity, String> {
     let identity = DeviceStore::new(storage::app_data_dir(&app)?.join("device-identity.json"))
         .load_or_create()?;
+    Ok(PublicDeviceIdentity {
+        device_id: identity.device_id.to_string(),
+        public_key: identity.public_key,
+    })
+}
+
+#[tauri::command]
+pub(crate) fn rotate_device_identity(
+    app: tauri::AppHandle,
+) -> Result<PublicDeviceIdentity, String> {
+    let identity =
+        DeviceStore::new(storage::app_data_dir(&app)?.join("device-identity.json")).replace()?;
+    let _ = std::fs::remove_file(storage::app_data_dir(&app)?.join("cached-entitlement.json"));
     Ok(PublicDeviceIdentity {
         device_id: identity.device_id.to_string(),
         public_key: identity.public_key,
@@ -916,12 +1018,20 @@ pub(crate) fn begin_ftep_connection(
         .append_pair("accordVersion", &treaty.version)
         .append_pair("accordHash", &treaty.sha256);
 
+    services.set_ftep_connection_state(FtepConnectionState::Pending)?;
     let app_for_callback = app.clone();
     let services_for_callback = services.inner().clone();
     std::thread::spawn(move || {
         receive_ftep_callback(listener, &app_for_callback, &services_for_callback, &state);
     });
     Ok(url.into())
+}
+
+#[tauri::command]
+pub(crate) fn ftep_connection_status(
+    services: tauri::State<'_, LocalServices>,
+) -> Result<FtepConnectionStatus, String> {
+    services.ftep_connection_status()
 }
 
 fn receive_ftep_callback(
@@ -941,9 +1051,17 @@ fn receive_ftep_callback(
             Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                 std::thread::sleep(Duration::from_millis(100));
             }
-            Err(_) => return,
+            Err(error) => {
+                let _ = services.set_ftep_connection_state(FtepConnectionState::Failed(format!(
+                    "FICSIT-0002: FTEP callback listener failed: {error}"
+                )));
+                return;
+            }
         }
     }
+    let _ = services.set_ftep_connection_state(FtepConnectionState::Failed(
+        "FICSIT-0002: FTEP connection timed out. Return to SRE and try again.".to_owned(),
+    ));
 }
 
 fn handle_callback_stream(
@@ -992,10 +1110,26 @@ fn handle_callback_stream(
             serde_json::from_slice::<SignedLease>(&bytes).map_err(|_| "invalid lease".to_owned())
         })
         .and_then(|signed| cache_signed_lease(app, signed));
+    if let Some(error) = parameters.get("error") {
+        let reason = parameters
+            .get("errorReason")
+            .or_else(|| parameters.get("errorCode"))
+            .map(|value| format!("{value}: "))
+            .unwrap_or_default();
+        let message = format!("{reason}{error}");
+        let _ = services.set_ftep_connection_state(FtepConnectionState::Failed(message));
+        respond_callback(stream, false);
+        return true;
+    }
     let Ok(_lease) = result else {
+        let error = result
+            .err()
+            .unwrap_or_else(|| "FICSIT-0005: FTEP returned an invalid lease.".to_owned());
+        let _ = services.set_ftep_connection_state(FtepConnectionState::Failed(error));
         respond_callback(stream, false);
         return true;
     };
+    let _ = services.set_ftep_connection_state(FtepConnectionState::Connected);
     let at = now_unix_secs().saturating_mul(1_000);
     for event in [
         AchievementEvent::OAuthCompleted { at_unix_ms: at },

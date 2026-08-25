@@ -99,7 +99,7 @@ export async function POST(request: Request) {
     return jsonOk(request, result, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "FTEP_DEVICE_OWNERSHIP_CONFLICT") {
-      return jsonError(request, 409, "FICSIT-0004", "This device identity is already bound to another account or key.");
+      return jsonError(request, 409, "FICSIT-0004", "This device identity is already bound to another account or key.", { reason: "DEVICE_OWNERSHIP_CONFLICT" });
     }
     if (localCredentialsEnabled() && isLocalDatabaseUnavailable(error)) {
       try {
@@ -110,7 +110,7 @@ export async function POST(request: Request) {
         return jsonError(request, 500, "FICSIT-0004", "Local device registration failed.");
       }
     }
-    if (isUniqueViolation(error)) return jsonError(request, 409, "FICSIT-0004", "This device public key is already registered.");
+    if (isUniqueViolation(error)) return jsonError(request, 409, "FICSIT-0004", "This device public key is already registered.", { reason: "DEVICE_KEY_ALREADY_REGISTERED" });
     console.error("FTEP device registration failed", error);
     return jsonError(request, 500, "FICSIT-0004", "Device registration failed.");
   }

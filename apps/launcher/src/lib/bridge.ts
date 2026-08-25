@@ -37,7 +37,38 @@ export async function registerGame(request: { gameId: string; variantId: string;
 export async function registerImportedShipwrightGame(): Promise<LibraryInstallation> { if (!isDesktopLauncher()) throw new Error("Shipwright registration requires the installed SRE desktop app."); return invoke<LibraryInstallation>("register_imported_shipwright_game"); }
 export async function entitlementStatus(): Promise<string> { if (!isDesktopLauncher()) throw new Error("Signed entitlement verification requires SRE desktop."); return invoke<string>("entitlement_status"); }
 export async function ftepWebUrl(): Promise<string> { return isDesktopLauncher() ? invoke<string>("ftep_web_url") : browserPreviewFtepUrl; }
-export async function connectFtep(): Promise<void> { if (!isDesktopLauncher()) { window.open(`${browserPreviewFtepUrl}/dashboard`, "_blank", "noopener,noreferrer"); throw new Error("The signed callback can only complete in SRE desktop."); } const url = await invoke<string>("begin_ftep_connection", { request: {} }); await openUrl(url); for (let attempt = 0; attempt < 300; attempt += 1) { await new Promise((resolve) => setTimeout(resolve, 1_000)); if (await entitlementStatus().then(() => true).catch(() => false)) return; } throw new Error("FTEP connection timed out. Return to SRE and try again."); }
+type FtepConnectionStatus = { state: "idle" | "pending" | "connected" | "failed"; error?: string };
+
+async function waitForFtepConnection(): Promise<void> {
+  for (let attempt = 0; attempt < 300; attempt += 1) {
+    const status = await invoke<FtepConnectionStatus>("ftep_connection_status");
+    if (status.state === "connected") return;
+    if (status.state === "failed") throw new Error(status.error ?? "FTEP connection failed.");
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+  }
+  throw new Error("FTEP connection timed out. Return to SRE and try again.");
+}
+
+export async function connectFtep(): Promise<void> {
+  if (!isDesktopLauncher()) {
+    window.open(`${browserPreviewFtepUrl}/dashboard`, "_blank", "noopener,noreferrer");
+    throw new Error("The signed callback can only complete in SRE desktop.");
+  }
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const url = await invoke<string>("begin_ftep_connection", { request: {} });
+    await openUrl(url);
+    try {
+      await waitForFtepConnection();
+      return;
+    } catch (error) {
+      if (attempt === 0 && error instanceof Error && error.message.includes("DEVICE_OWNERSHIP_CONFLICT")) {
+        await invoke("rotate_device_identity");
+        continue;
+      }
+      throw error;
+    }
+  }
+}
 export async function loadSessions(): Promise<SessionHistory> { return isDesktopLauncher() ? invoke<SessionHistory>("session_history") : { sessions: [] }; }
 export async function achievementCount(): Promise<number> { return isDesktopLauncher() ? invoke<number>("achievement_count") : 0; }
 export async function launchRegisteredGame(installationId: string): Promise<{ sessionId: string; processId?: number; launchResult: string }> { if (!isDesktopLauncher()) throw new Error("Launching requires SRE desktop."); return invoke("launch_registered_game", { request: { installationId } }); }

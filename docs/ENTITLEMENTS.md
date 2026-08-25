@@ -8,4 +8,6 @@ The desktop starts a one-use loopback listener on random `127.0.0.1` port and op
 
 The desktop stores only the signed lease and verifies it offline against a public-key trust set generated into the installer by `create-trusted-keyset.mjs`. It always binds verification to the locally stored device ID and uses the signed subject for achievements/sessions. Caller-supplied keys, device IDs, account IDs, booleans, and timestamps are not trust inputs.
 
+If FTEP reports that the persisted device identity belongs to another account or key, the desktop never rebinds that identity. It surfaces the structured callback failure, rotates to a fresh random UUID/keypair, clears the stale cached lease, and retries once so switching local accounts does not require manually repairing files.
+
 The current lease supports offline launch until expiry. Server revocation is enforced when a refreshed lease or revocation-aware control-plane response is obtained; a client that is genuinely offline cannot learn a new server-side revocation before expiry. Suspended users receive no new lease. Rotation requires a new SRE build/trust set (or a future signed trust-set mechanism) containing the new public key before FTEP begins signing with it.

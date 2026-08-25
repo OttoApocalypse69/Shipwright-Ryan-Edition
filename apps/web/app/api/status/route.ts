@@ -1,4 +1,4 @@
-import { configuredProviderIds } from "@/lib/auth-config";
+import { configuredProviderIds, localCredentialsEnabled } from "@/lib/auth-config";
 import { database } from "@/lib/db";
 import { publicKeyRawBase64 } from "@/lib/signing";
 
@@ -12,7 +12,7 @@ export async function GET() {
     checkedAt,
     services: {
       controlPlane: databaseStatus,
-      authentication: configuredProviderIds().length > 0 ? "configured" : "unavailable",
+      authentication: configuredProviderIds().length > 0 || localCredentialsEnabled() ? "configured" : "unavailable",
       entitlementSigning: signingStatus,
       achievementSynchronization: databaseStatus,
       releaseMetadata: process.env.FTEP_GITHUB_REPOSITORY ? "configured" : "unavailable",

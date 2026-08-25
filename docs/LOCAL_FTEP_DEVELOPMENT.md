@@ -44,6 +44,9 @@ intentionally available only when
 
 The ignored `apps/web/.env.local` contains the local database connection and
 development lease-signing key. Do not commit or reuse it for a deployment.
+The SRE-managed FTEP process passes this file's local-only variables explicitly
+to its server process, including the signing key; the key is never sent to the
+browser or to a release build.
 When PostgreSQL is unavailable, sign-up/sign-in and the complete connection
 flow transparently use these development-only stores:
 
@@ -75,6 +78,12 @@ The desktop trust entry used for this configuration is marked
 `developmentOnly`. Debug builds accept it; release builds reject it. A real
 deployment needs a separately controlled signing key and a release trust-set
 update.
+
+If an existing local device UUID is already owned by another account, FTEP
+does not overwrite that registration. The browser returns a structured
+ownership-conflict callback, and SRE rotates its local random identity once,
+removes the expired cached lease, and retries registration. This keeps account
+boundaries intact while making account switching and reconnecting recoverable.
 
 ## Shutdown behavior
 
