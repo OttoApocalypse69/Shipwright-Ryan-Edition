@@ -509,14 +509,15 @@ change and record verification evidence before treating a phase as complete.
   an unused `127.0.0.1` port at launcher startup, exposes that exact URL to
   desktop connection/dashboard actions, health-checks it before use, and
   terminates only that child process tree when the main SRE window closes.
-  Docker/PostgreSQL and all unrelated processes remain untouched; this
-  prevents local FTEP from taking port 3000 or remaining behind after the
-  launcher closes.
+  SRE starts the existing local PostgreSQL container when needed and stops it
+  again only when SRE started it; Docker Desktop is stopped only when SRE
+  started it and no other container is running. This prevents local FTEP from
+  taking port 3000 or remaining behind after the launcher closes.
 - `START SRE.exe` is a terminal-free, source-checkout helper placed at the
   project root for one-click local startup. It starts and later stops only its
   own Vite process tree; the SRE process continues to own the temporary FTEP
-  child and stops it when the main window closes. Docker/PostgreSQL and
-  unrelated processes remain untouched.
+  child and stops it when the main window closes. PostgreSQL and unrelated
+  processes that were already running remain untouched.
 - OoT setup now stages Shipwright's non-ROM extractor assets beside
   `soh-torch.exe` and runs Torch from that directory. This fixes the missing
   `assets/`/O2R generation failure without bundling, copying, or altering a

@@ -1,5 +1,12 @@
-const achievements = [
-  ["Treaty Ratified", "You actually agreed to this."], ["Somehow This Needed OAuth", "You wanted games. We built identity infrastructure."], ["Registered Gaming Apparatus", "Your computer is now recognized by the Interpersonal Treaty Authority."], ["Ahh, Zelda", "Hope you had fun playing. Now onto Satisfactory."], ["That Is Not Zelda", "Animal Crossing support has been requested under the Zelda modernization programme."], ["Enterprise Gaming", "A distributed system was deployed so two people could play video games."], ["Article II Enjoyer", "Industrial cooperation has improved diplomatic relations."], ["Diplomatic Relations Restored", "Gaming privileges restored. Try not to ruin this."], ["Fluid Logistics", "Biological machinery also requires input buffers."], ["Ryan Moment", "Engineering could not have reasonably anticipated this."],
-] as const;
-export const metadata = { title: "Achievements" };
-export default function AchievementsPage() { return <section className="shell section"><span className="eyebrow">Offline first</span><h2>Achievements</h2><p className="lede">Unlocks commit locally and reach the overlay without waiting for FTEP synchronization.</p><div className="grid">{achievements.map(([title, text]) => <article className="card" key={title}><span className="badge">SRE</span><h3>{title}</h3><p>{text}</p></article>)}</div></section>; }
+"use client";
+
+import { useEffect, useState } from "react";
+
+type Achievement = { id: string; title: string; description: string; category: string; score: number; locked: boolean; unlockedAt: string | null };
+export default function AchievementsPage() {
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [message, setMessage] = useState("Loading achievements…");
+  useEffect(() => { void fetch("/api/achievements", { cache: "no-store" }).then(async (response) => { const value = await response.json() as { achievements?: Achievement[]; error?: string }; if (!response.ok) throw new Error(value.error ?? "Achievement state unavailable."); setAchievements(value.achievements ?? []); setMessage(value.achievements ? "" : "No achievement definitions available."); }).catch((error: unknown) => setMessage(error instanceof Error ? error.message : "Achievement state unavailable.")); }, []);
+  const unlocked = achievements.filter((achievement) => !achievement.locked).length;
+  return <section className="shell section"><span className="eyebrow">Offline first</span><h2>Achievements</h2><p className="lede">{unlocked} / {achievements.length || "—"} synchronized. SRE unlocks locally first and retries synchronization when FTEP is available.</p><div className="grid">{message && <p className="muted">{message}</p>}{achievements.map((achievement) => <article className="card" key={achievement.id}><span className="badge">{achievement.locked ? "LOCKED" : `UNLOCKED · ${achievement.category}`}</span><h3>{achievement.locked ? "Classified FICSIT objective" : achievement.title}</h3><p>{achievement.locked ? "Keep using SRE to discover this achievement." : achievement.description}</p>{achievement.unlockedAt && <small>Unlocked {new Date(achievement.unlockedAt).toLocaleString()}</small>}</article>)}</div></section>;
+}

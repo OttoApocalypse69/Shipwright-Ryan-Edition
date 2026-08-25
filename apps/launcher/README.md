@@ -56,8 +56,10 @@ development SRE session as
 `pnpm --filter @sre/launcher dev`, including
 the dynamically ported local FTEP service. It is intentionally a source-checkout
 helper, not an end-user release installer; it requires the already-installed
-Node.js, pnpm, Docker/PostgreSQL, and local FTEP configuration. Startup output
-is written to `target\sre-local-launcher.log` if troubleshooting is needed.
+Node.js, pnpm, and local FTEP configuration. When Docker Desktop and the
+`ftep-local-postgres` container are available, SRE starts them as needed and
+stops only what it started when the SRE window closes. Startup output is written
+to `target\sre-local-launcher.log` if troubleshooting is needed.
 Repeated clicks are safe: the helper holds an OS-level instance lock and exits
 successfully when SRE is already running. If a forced close left only the Vite
 frontend behind, the next click reuses that frontend and starts a fresh SRE

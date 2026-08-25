@@ -10,6 +10,7 @@ Common cases:
 
 - **Signing key is not trusted:** the lease key is absent from this build's bundled trust set. Install a newer official SRE build; do not paste a key into the launcher.
 - **No/expired entitlement:** reconnect through the FTEP dashboard and obtain a current device-bound lease. Offline launches work only until cached expiry.
+- **Local FTEP says PostgreSQL is unavailable or the container predates this checkout:** this is safe in development. Apply every file in `database/migrations` in lexical order when you want PostgreSQL-backed state; until then, local accounts, device registration, Accord acceptance, and the signed lease fall back to `%LOCALAPPDATA%\\Shipwright Ryan Edition\\ftep`. Do not delete `local-accounts.json` or `local-control-plane.json` unless you intentionally want to reset local FTEP state.
 - **Game source rejected:** confirm the correct title/variant and lawful complete source layout. SRE does not locate missing content.
 - **Runtime missing/wrong version:** select the executable you installed and review provider diagnostics. SRE does not download external runtimes.
 - **No playable achievement:** the provider may have no signal or only an approximate delayed signal. Check session/doctor output before changing compatibility claims.

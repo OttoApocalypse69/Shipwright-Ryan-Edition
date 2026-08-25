@@ -1,3 +1,4 @@
-import { InfoCard, InfoPage } from "@/app/_components/info-page";
+import { StatusClient } from "./status-client";
+
 export const metadata = { title: "Status" };
-export default function StatusPage() { return <InfoPage eyebrow="Service status" title="Status" intro="The release candidate keeps local gameplay available during control-plane interruptions while cached leases remain valid."><InfoCard title="SRE desktop"><p>Local library, diagnostics, launches, and achievements are local-first.</p></InfoCard><InfoCard title="FTEP control plane"><p>Production service monitoring is enabled only after a real Vercel and PostgreSQL deployment exists.</p></InfoCard></InfoPage>; }
+export default function StatusPage() { return <section className="shell section"><span className="eyebrow">Service status</span><h2>Status</h2><p className="lede">FTEP reports measured control-plane, authentication, signing, achievement, and release metadata state without exposing internal hosts or personal data.</p><StatusClient /></section>; }

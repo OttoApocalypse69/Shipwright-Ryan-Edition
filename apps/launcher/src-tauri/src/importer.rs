@@ -283,11 +283,10 @@ fn managed_ryujinx_resource_executable(
             }),
     )
     .find(|candidate| candidate.is_file())
-    .map(|executable| {
+    .inspect(|executable| {
         if let Some(publish_directory) = executable.parent() {
             prune_ryujinx_logs(&publish_directory.join("Logs"));
         }
-        executable
     })
     .ok_or_else(|| missing_message.to_owned())
 }

@@ -26,7 +26,7 @@ function localAccountStorePath(): string {
 
 async function readLocalAccountStore(): Promise<StoredLocalAccount[]> {
   try {
-    const parsed: unknown = JSON.parse(await readFile(localAccountStorePath(), "utf8"));
+    const parsed: unknown = JSON.parse(await readFile(/* turbopackIgnore: true */ localAccountStorePath(), "utf8"));
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((entry): entry is StoredLocalAccount => {
       if (!entry || typeof entry !== "object") return false;
@@ -55,23 +55,43 @@ async function writeLocalAccountStore(accounts: StoredLocalAccount[]): Promise<v
   }
 }
 
-function isLocalDatabaseUnavailable(error: unknown): boolean {
+export function isLocalDatabaseUnavailable(error: unknown): boolean {
   const code = (error as { code?: unknown } | undefined)?.code;
-  if (typeof code === "string" && ["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT", "3D000", "42P01"].includes(code)) return true;
-  return error instanceof Error && error.message === "DATABASE_URL is not configured";
+  // A local PostgreSQL container can outlive the checkout that created it.
+  // Treat missing control-plane migrations like an unavailable local store so
+  // development can use the durable file-backed FTEP state until migrations
+  // are applied. Production never enables this fallback.
+  if (typeof code === "string" && ["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT", "ECONNRESET", "EPIPE", "08001", "3D000", "42P01", "42703", "42704", "57P03", "53300"].includes(code)) return true;
+  return error instanceof Error && (error.message === "DATABASE_URL is not configured" || /connect ECONNREFUSED|connect ETIMEDOUT|connection terminated unexpectedly/i.test(error.message));
+}
+
+let accountStoreOperation = Promise.resolve();
+
+async function withAccountStoreLock<T>(operation: () => Promise<T>): Promise<T> {
+  const previous = accountStoreOperation;
+  let release!: () => void;
+  accountStoreOperation = new Promise<void>((resolve) => { release = resolve; });
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release();
+  }
 }
 
 async function createFileBackedLocalAccount(input: z.infer<typeof localRegistrationSchema>): Promise<{ account?: LocalAccount; conflict: boolean }> {
-  const accounts = await readLocalAccountStore();
-  if (accounts.some((account) => account.email === input.email)) return { conflict: true };
-  const account: StoredLocalAccount = {
-    id: crypto.randomUUID(),
-    email: input.email,
-    displayName: input.displayName ?? null,
-    passwordHash: await hashLocalPassword(input.password),
-  };
-  await writeLocalAccountStore([...accounts, account]);
-  return { account: { id: account.id, email: account.email, displayName: account.displayName }, conflict: false };
+  return await withAccountStoreLock(async () => {
+    const accounts = await readLocalAccountStore();
+    if (accounts.some((account) => account.email === input.email)) return { conflict: true };
+    const account: StoredLocalAccount = {
+      id: crypto.randomUUID(),
+      email: input.email,
+      displayName: input.displayName ?? null,
+      passwordHash: await hashLocalPassword(input.password),
+    };
+    await writeLocalAccountStore([...accounts, account]);
+    return { account: { id: account.id, email: account.email, displayName: account.displayName }, conflict: false };
+  });
 }
 
 async function authenticateFileBackedLocalAccount(input: z.infer<typeof localSignInSchema>): Promise<LocalAccount | null> {
@@ -104,6 +124,10 @@ export async function verifyLocalPassword(passwordValue: string, storedValue: st
 }
 
 export async function createLocalAccount(input: z.infer<typeof localRegistrationSchema>): Promise<{ account?: LocalAccount; conflict: boolean }> {
+  // The file store is the durable source for development accounts. This also
+  // prevents a PostgreSQL restart from creating a second account with the same
+  // email after the first account was created while the database was offline.
+  if (await localAccountByEmail(input.email)) return { conflict: true };
   let client: PoolClient | undefined;
   try {
     const connectedClient = await database().connect();
@@ -119,7 +143,7 @@ export async function createLocalAccount(input: z.infer<typeof localRegistration
     await connectedClient.query("COMMIT");
     return { account: result.rows[0], conflict: false };
   } catch (error) {
-    console.error("FTEP local account registration database error", error);
+    if (!isLocalDatabaseUnavailable(error)) console.error("FTEP local account registration database error", error);
     await client?.query("ROLLBACK").catch(() => undefined);
     if (isLocalDatabaseUnavailable(error)) return await createFileBackedLocalAccount(input);
     throw new Error("Local account registration failed.");
@@ -133,11 +157,22 @@ export async function authenticateLocalAccount(input: z.infer<typeof localSignIn
     const result = await database().query<LocalAccount & { passwordHash: string }>("SELECT id,email,display_name AS \"displayName\",password_hash AS \"passwordHash\" FROM users WHERE email=$1 AND password_hash IS NOT NULL", [input.email]);
     const account = result.rows[0];
     if (account) return (await verifyLocalPassword(input.password, account.passwordHash)) ? { id: account.id, email: account.email, displayName: account.displayName } : null;
+    // A local account may have been created during a database outage. Keep
+    // sign-in working when PostgreSQL comes back with an empty/new database.
+    return await authenticateFileBackedLocalAccount(input);
   } catch (error) {
     if (!isLocalDatabaseUnavailable(error)) throw error;
     console.warn("FTEP local account database is unavailable; using the local account store.");
   }
   return await authenticateFileBackedLocalAccount(input);
+}
+
+export type LocalAccountRecord = LocalAccount;
+
+export async function localAccountByEmail(value: string): Promise<LocalAccountRecord | null> {
+  const normalizedEmail = value.trim().toLowerCase();
+  const account = (await readLocalAccountStore()).find((candidate) => candidate.email === normalizedEmail);
+  return account ? { id: account.id, email: account.email, displayName: account.displayName } : null;
 }
 
 export function safeLocalReturnTo(value: unknown): string {

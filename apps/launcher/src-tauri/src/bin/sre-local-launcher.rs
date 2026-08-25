@@ -98,14 +98,14 @@ fn run() -> Result<(), String> {
         })?)
     };
 
-    if let Some(vite) = vite_child.as_mut() {
-        if let Err(error) = wait_for_vite(vite) {
-            stop_owned_vite(&mut vite_child);
-            return Err(format!(
-                "{error} See {} for the exact error.",
-                log_path.display()
-            ));
-        }
+    if let Some(vite) = vite_child.as_mut()
+        && let Err(error) = wait_for_vite(vite)
+    {
+        stop_owned_vite(&mut vite_child);
+        return Err(format!(
+            "{error} See {} for the exact error.",
+            log_path.display()
+        ));
     }
 
     let sre_stderr = File::options()
@@ -167,6 +167,7 @@ fn acquire_instance_lock(workspace: &Path) -> Result<Option<File>, String> {
         .map_err(|error| format!("Cannot create {}: {error}", parent.display()))?;
     let file = OpenOptions::new()
         .create(true)
+        .truncate(false)
         .read(true)
         .write(true)
         .open(&path)
@@ -205,7 +206,7 @@ fn sre_process_is_running() -> bool {
             .stderr(Stdio::null())
             .stdout(Stdio::piped())
             .creation_flags(CREATE_NO_WINDOW);
-        return tasklist
+        tasklist
             .output()
             .map(|output| {
                 output.status.success()
@@ -213,7 +214,7 @@ fn sre_process_is_running() -> bool {
                         .lines()
                         .any(|line| line.trim_start().starts_with("sre-launcher.exe"))
             })
-            .unwrap_or(false);
+            .unwrap_or(false)
     }
 
     #[cfg(not(windows))]

@@ -1,3 +1,4 @@
-import { InfoCard, InfoPage } from "@/app/_components/info-page";
+import { SessionList } from "./session-list";
+
 export const metadata = { title: "Sessions" };
-export default function SessionsPage() { return <InfoPage eyebrow="Lifecycle records" title="Sessions" intro="Sessions record the selected game, variant, runtime, device, timing, playable method, duration, and launch result."><InfoCard title="Exact"><p>Native semantic signals may produce PLAYABLE_EXACT.</p></InfoCard><InfoCard title="Approximate"><p>External runtimes use process, window, and startup-threshold evidence and are labeled PLAYABLE_APPROXIMATE.</p></InfoCard></InfoPage>; }
+export default function SessionsPage() { return <section className="shell section"><span className="eyebrow">Lifecycle records</span><h2>Sessions</h2><p className="lede">SRE synchronizes privacy-preserving session summaries: title, variant, runtime, timing, playable signal, and result. It never uploads game files, saves, or process inventories.</p><SessionList /></section>; }

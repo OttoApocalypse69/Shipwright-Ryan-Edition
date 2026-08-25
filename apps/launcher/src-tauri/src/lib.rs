@@ -1,3 +1,4 @@
+mod ftep_client;
 mod importer;
 mod library;
 mod platform;
@@ -7,6 +8,7 @@ mod storage;
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use sre_achievements::AchievementEvent;
 use sre_runtime::{DetectionStatus, RuntimeProvider};
 use std::fs::{self, File};
 use std::io::Write;
@@ -73,16 +75,29 @@ fn to_hex(bytes: &[u8]) -> String {
 #[tauri::command]
 async fn validate_game_data(
     app: tauri::AppHandle,
+    services: tauri::State<'_, services::LocalServices>,
     path: String,
 ) -> Result<ValidationReport, String> {
     let adapter = importer::shipwright_adapter(&app);
-    tauri::async_runtime::spawn_blocking(move || {
+    let validation = tauri::async_runtime::spawn_blocking(move || {
         adapter
             .validate_oot_source(std::path::Path::new(&path))
             .map_err(|error| format!("FICSIT-0006: {}", error.message))
     })
     .await
-    .map_err(|error| format!("FICSIT-0001: Validation task failed: {error}"))?
+    .map_err(|error| format!("FICSIT-0001: Validation task failed: {error}"))?;
+    if validation.is_ok() {
+        let at_unix_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|value| value.as_millis() as u64)
+            .unwrap_or(0);
+        let _ = services::evaluate_cached_achievement(
+            &app,
+            services.overlay.clone(),
+            AchievementEvent::GameDataValidated { at_unix_ms },
+        );
+    }
+    validation
 }
 
 #[tauri::command]

@@ -1,3 +1,4 @@
+use crate::ftep_client;
 use crate::storage;
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use ed25519_dalek::VerifyingKey;
@@ -20,7 +21,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Command, Output, Stdio};
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, Ordering},
@@ -31,6 +32,8 @@ use url::Url;
 
 #[cfg(windows)]
 use std::os::windows::io::AsRawHandle;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 #[cfg(windows)]
 use windows::{
     Win32::{
@@ -48,16 +51,51 @@ use windows::{
 const LOCAL_FTEP_PACKAGE_MANAGER: &str = "pnpm.cmd";
 #[cfg(not(windows))]
 const LOCAL_FTEP_PACKAGE_MANAGER: &str = "pnpm";
+const LOCAL_FTEP_DATABASE_CONTAINER: &str = "ftep-local-postgres";
+const DOCKER_DAEMON_TIMEOUT: Duration = Duration::from_secs(60);
+const DOCKER_POLL_INTERVAL: Duration = Duration::from_millis(500);
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+#[derive(Debug, Default)]
+struct ManagedLocalDatabase {
+    container_started_by_sre: bool,
+    desktop_started_by_sre: bool,
+}
+
+impl ManagedLocalDatabase {
+    fn shutdown(self) {
+        if self.container_started_by_sre {
+            let _ = run_docker(&["stop", "--timeout", "10", LOCAL_FTEP_DATABASE_CONTAINER]);
+        }
+
+        // Docker Desktop itself is shared infrastructure. Only stop it when
+        // SRE had to start it and no container is still running at shutdown;
+        // this leaves unrelated user workloads alone.
+        if self.desktop_started_by_sre && matches!(running_docker_containers(), Ok(false)) {
+            let _ = run_docker(&["desktop", "stop", "--detach"]);
+        }
+    }
+}
 
 #[derive(Debug)]
 struct ManagedLocalFtep {
     child: Child,
     web_url: String,
+    database: ManagedLocalDatabase,
     // A Windows job object owns pnpm and every descendant it starts. If SRE is
     // force-closed, Windows closes this handle and ends that complete local
     // service tree instead of leaving Next.js and its port behind.
     #[cfg(windows)]
     _job: LocalFtepJob,
+}
+
+impl ManagedLocalFtep {
+    fn shutdown(mut self) {
+        stop_local_ftep_process(&mut self.child);
+        self.database.shutdown();
+    }
 }
 
 #[cfg(windows)]
@@ -184,20 +222,29 @@ impl LocalServices {
             {
                 return Ok(());
             }
-            *managed = None;
+        }
+        if let Some(existing) = managed.take() {
+            existing.shutdown();
         }
 
         let port = reserve_loopback_port()?;
         let web_url = format!("http://127.0.0.1:{port}");
         let workspace = local_workspace_root()?;
         let log_path = storage::app_data_dir(app)?.join("local-ftep.log");
-        let log_file = File::create(&log_path)
+        let mut log_file = File::create(&log_path)
             .map_err(|error| format!("FICSIT-0002: Cannot create local FTEP log file: {error}"))?;
-        let stdout = log_file
-            .try_clone()
-            .map_err(|error| format!("FICSIT-0002: Cannot prepare local FTEP log file: {error}"))?;
+        let database = start_managed_local_database(&mut log_file);
+        let stdout = match log_file.try_clone() {
+            Ok(stdout) => stdout,
+            Err(error) => {
+                database.shutdown();
+                return Err(format!(
+                    "FICSIT-0002: Cannot prepare local FTEP log file: {error}"
+                ));
+            }
+        };
         let port_text = port.to_string();
-        let mut child = Command::new(LOCAL_FTEP_PACKAGE_MANAGER)
+        let mut child = match Command::new(LOCAL_FTEP_PACKAGE_MANAGER)
             .args([
                 "--filter",
                 "@ftep/web",
@@ -212,18 +259,23 @@ impl LocalServices {
             .stdout(Stdio::from(stdout))
             .stderr(Stdio::from(log_file))
             .spawn()
-            .map_err(|error| {
-                format!(
+        {
+            Ok(child) => child,
+            Err(error) => {
+                database.shutdown();
+                return Err(format!(
                     "FICSIT-0002: Cannot start local FTEP. Install pnpm and see {}: {error}",
                     log_path.display()
-                )
-            })?;
+                ));
+            }
+        };
 
         #[cfg(windows)]
         let job = match contain_local_ftep_process(&child) {
             Ok(job) => job,
             Err(error) => {
                 stop_local_ftep_process(&mut child);
+                database.shutdown();
                 return Err(error);
             }
         };
@@ -236,6 +288,7 @@ impl LocalServices {
         *managed = Some(ManagedLocalFtep {
             child,
             web_url,
+            database,
             #[cfg(windows)]
             _job: job,
         });
@@ -244,10 +297,26 @@ impl LocalServices {
 
     fn managed_local_ftep_url(&self) -> Result<String, String> {
         if !cfg!(debug_assertions) {
-            return Err(
-                "FICSIT-0002: This release build requires a configured HTTPS FTEP service."
-                    .to_owned(),
-            );
+            let configured = std::env::var("FTEP_WEB_URL")
+                .ok()
+                .or_else(|| option_env!("VITE_FTEP_WEB_URL").map(str::to_owned))
+                .ok_or_else(|| {
+                    "FICSIT-0002: This release build requires a configured HTTPS FTEP service."
+                        .to_owned()
+                })?;
+            let url = Url::parse(&configured)
+                .map_err(|_| "FICSIT-0002: The configured FTEP web URL is invalid.".to_owned())?;
+            if url.scheme() != "https"
+                || url.host_str().is_none()
+                || !url.username().is_empty()
+                || url.password().is_some()
+            {
+                return Err(
+                    "FICSIT-0002: This release build requires a configured HTTPS FTEP service."
+                        .to_owned(),
+                );
+            }
+            return Ok(configured.trim_end_matches('/').to_owned());
         }
 
         let mut managed = self
@@ -266,7 +335,9 @@ impl LocalServices {
             .map_err(|error| format!("FICSIT-0002: Cannot inspect local FTEP: {error}"))?
             .is_some();
         if finished {
-            *managed = None;
+            if let Some(local_ftep) = managed.take() {
+                local_ftep.shutdown();
+            }
             return Err(
                 "FICSIT-0002: Local FTEP stopped unexpectedly. Restart SRE to start it again."
                     .to_owned(),
@@ -276,15 +347,200 @@ impl LocalServices {
     }
 
     pub(crate) fn shutdown_managed_local_ftep(&self) {
-        let child = self
+        let local_ftep = self
             .managed_local_ftep
             .lock()
             .ok()
-            .and_then(|mut managed| managed.take().map(|service| service.child));
-        if let Some(mut child) = child {
-            stop_local_ftep_process(&mut child);
+            .and_then(|mut managed| managed.take());
+        if let Some(local_ftep) = local_ftep {
+            local_ftep.shutdown();
         }
     }
+}
+
+fn start_managed_local_database(log: &mut File) -> ManagedLocalDatabase {
+    let mut managed = ManagedLocalDatabase::default();
+    let daemon_ready = match docker_daemon_is_ready() {
+        Ok(ready) => ready,
+        Err(error) => {
+            let _ = writeln!(
+                log,
+                "Docker is unavailable; using file-backed FTEP state: {error}"
+            );
+            return managed;
+        }
+    };
+
+    if !daemon_ready {
+        match run_docker(&["desktop", "start", "--detach"]) {
+            Ok(output) if output.status.success() => {
+                managed.desktop_started_by_sre = true;
+                let _ = writeln!(log, "Started Docker Desktop for local FTEP.");
+            }
+            Ok(output) => {
+                let _ = writeln!(
+                    log,
+                    "Docker Desktop could not be started; using file-backed FTEP state: {}",
+                    command_output_details(&output)
+                );
+                return managed;
+            }
+            Err(error) => {
+                let _ = writeln!(
+                    log,
+                    "Docker Desktop could not be started; using file-backed FTEP state: {error}"
+                );
+                return managed;
+            }
+        }
+
+        if !wait_for_docker_daemon() {
+            let _ = writeln!(
+                log,
+                "Docker Desktop did not become ready within {} seconds; using file-backed FTEP state.",
+                DOCKER_DAEMON_TIMEOUT.as_secs()
+            );
+            return managed;
+        }
+    }
+
+    match local_database_container_state() {
+        Ok(LocalDatabaseContainerState::Running) => {
+            let _ = writeln!(
+                log,
+                "Using the already-running Docker container {LOCAL_FTEP_DATABASE_CONTAINER}."
+            );
+        }
+        Ok(LocalDatabaseContainerState::Stopped) => {
+            match run_docker(&["start", LOCAL_FTEP_DATABASE_CONTAINER]) {
+                Ok(output) if output.status.success() => {
+                    managed.container_started_by_sre = true;
+                    let _ = writeln!(
+                        log,
+                        "Started the Docker container {LOCAL_FTEP_DATABASE_CONTAINER}."
+                    );
+                }
+                Ok(output) => {
+                    let _ = writeln!(
+                        log,
+                        "The Docker container {LOCAL_FTEP_DATABASE_CONTAINER} could not be started; using file-backed FTEP state: {}",
+                        command_output_details(&output)
+                    );
+                }
+                Err(error) => {
+                    let _ = writeln!(
+                        log,
+                        "The Docker container {LOCAL_FTEP_DATABASE_CONTAINER} could not be started; using file-backed FTEP state: {error}"
+                    );
+                }
+            }
+        }
+        Ok(LocalDatabaseContainerState::Missing) => {
+            let _ = writeln!(
+                log,
+                "Docker container {LOCAL_FTEP_DATABASE_CONTAINER} was not found; using file-backed FTEP state."
+            );
+        }
+        Err(error) => {
+            let _ = writeln!(
+                log,
+                "Docker container {LOCAL_FTEP_DATABASE_CONTAINER} could not be inspected; using file-backed FTEP state: {error}"
+            );
+        }
+    }
+
+    managed
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum LocalDatabaseContainerState {
+    Running,
+    Stopped,
+    Missing,
+}
+
+fn docker_command() -> Command {
+    let mut command = Command::new("docker");
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    #[cfg(windows)]
+    command.creation_flags(CREATE_NO_WINDOW);
+    command
+}
+
+fn run_docker(args: &[&str]) -> Result<Output, String> {
+    docker_command()
+        .args(args)
+        .output()
+        .map_err(|error| format!("could not run Docker CLI: {error}"))
+}
+
+fn docker_daemon_is_ready() -> Result<bool, String> {
+    Ok(run_docker(&["info", "--format", "{{.ServerVersion}}"])?
+        .status
+        .success())
+}
+
+fn wait_for_docker_daemon() -> bool {
+    let deadline = Instant::now() + DOCKER_DAEMON_TIMEOUT;
+    while Instant::now() < deadline {
+        if docker_daemon_is_ready().unwrap_or(false) {
+            return true;
+        }
+        std::thread::sleep(DOCKER_POLL_INTERVAL);
+    }
+    false
+}
+
+fn local_database_container_state() -> Result<LocalDatabaseContainerState, String> {
+    let output = run_docker(&[
+        "inspect",
+        "--type",
+        "container",
+        "--format",
+        "{{.State.Running}}",
+        LOCAL_FTEP_DATABASE_CONTAINER,
+    ])?;
+    if output.status.success() {
+        return match String::from_utf8_lossy(&output.stdout).trim() {
+            "true" => Ok(LocalDatabaseContainerState::Running),
+            "false" => Ok(LocalDatabaseContainerState::Stopped),
+            state => Err(format!(
+                "Docker returned an unknown container state: {state}"
+            )),
+        };
+    }
+
+    let details = command_output_details(&output);
+    if details.contains("No such object") || details.contains("No such container") {
+        Ok(LocalDatabaseContainerState::Missing)
+    } else {
+        Err(details)
+    }
+}
+
+fn running_docker_containers() -> Result<bool, String> {
+    let output = run_docker(&["ps", "--quiet"])?;
+    if !output.status.success() {
+        return Err(command_output_details(&output));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .any(|line| !line.trim().is_empty()))
+}
+
+fn command_output_details(output: &Output) -> String {
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
+    if !stderr.is_empty() {
+        return stderr;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    if !stdout.is_empty() {
+        return stdout;
+    }
+    format!("Docker exited with {}", output.status)
 }
 
 fn local_workspace_root() -> Result<PathBuf, String> {
@@ -566,6 +822,20 @@ fn load_cached_lease(app: &tauri::AppHandle) -> Result<CachedLease, String> {
     .map_err(|_| "FICSIT-0005: Cached entitlement storage is invalid.".to_owned())
 }
 
+pub(crate) fn evaluate_cached_achievement(
+    app: &tauri::AppHandle,
+    overlay: OverlayQueue,
+    event: AchievementEvent<'_>,
+) -> Result<(), String> {
+    let cached = load_cached_lease(app)?;
+    let lease = validate_lease(app, &cached, now_unix_secs())?;
+    let mut engine = AchievementEngine::open(
+        &storage::app_data_dir(app)?.join("achievements.sqlite3"),
+        overlay,
+    )?;
+    engine.evaluate(&lease.subject_id, event).map(|_| ())
+}
+
 #[tauri::command]
 pub(crate) fn entitlement_status(app: tauri::AppHandle) -> Result<String, String> {
     validate_lease(&app, &load_cached_lease(&app)?, now_unix_secs()).map(|_| "VALID".to_owned())
@@ -722,30 +992,25 @@ fn handle_callback_stream(
             serde_json::from_slice::<SignedLease>(&bytes).map_err(|_| "invalid lease".to_owned())
         })
         .and_then(|signed| cache_signed_lease(app, signed));
-    let Ok(lease) = result else {
+    let Ok(_lease) = result else {
         respond_callback(stream, false);
         return true;
     };
-    if let Ok(mut engine) = AchievementEngine::open(
-        &storage::app_data_dir(app)
-            .unwrap_or_else(|_| std::env::temp_dir().join("SRE"))
-            .join("achievements.sqlite3"),
-        services.overlay.clone(),
-    ) {
-        let at = now_unix_secs().saturating_mul(1_000);
-        let _ = engine.evaluate(
-            &lease.subject_id,
-            AchievementEvent::OAuthCompleted { at_unix_ms: at },
-        );
-        let _ = engine.evaluate(
-            &lease.subject_id,
-            AchievementEvent::DeviceRegistered { at_unix_ms: at },
-        );
-        let _ = engine.evaluate(
-            &lease.subject_id,
-            AchievementEvent::TreatyRatified { at_unix_ms: at },
-        );
+    let at = now_unix_secs().saturating_mul(1_000);
+    for event in [
+        AchievementEvent::OAuthCompleted { at_unix_ms: at },
+        AchievementEvent::DeviceRegistered { at_unix_ms: at },
+        AchievementEvent::TreatyRatified { at_unix_ms: at },
+        AchievementEvent::ArticleIIActivated { at_unix_ms: at },
+        AchievementEvent::BackendMigrationApplied { at_unix_ms: at },
+        AchievementEvent::ControlPlaneHealthy { at_unix_ms: at },
+    ] {
+        let _ = evaluate_cached_achievement(app, services.overlay.clone(), event);
     }
+    let _ = ftep_client::sync_pending_achievements(
+        &services.managed_local_ftep_url().unwrap_or_default(),
+        &storage::app_data_dir(app).unwrap_or_else(|_| std::env::temp_dir().join("SRE")),
+    );
     if let Some(window) = app.get_webview_window("overlay") {
         let _ = window.show();
     }
@@ -947,6 +1212,7 @@ fn launch_registered_game_blocking(
             .upsert(session.clone())
             .map_err(|error| error.to_string())?;
     }
+    spawn_ftep_sync(&app, &services, &session);
     if let Some(process_id) = session.process_id {
         services.track_game_process(&session.session_id, process_id);
     }
@@ -995,8 +1261,9 @@ fn monitor_session(
                     session.state = RuntimeSessionState::Failed;
                     session.launch_result = format!("OBSERVATION_FAILED:{:?}", error.code);
                     if let Ok(_guard) = services.session_write.lock() {
-                        let _ = store.upsert(session);
+                        let _ = store.upsert(session.clone());
                     }
+                    spawn_ftep_sync(&app, &services, &session);
                     services.release_game_process(&managed_session_id);
                     return;
                 }
@@ -1038,6 +1305,7 @@ fn monitor_session(
                 if let Ok(_guard) = services.session_write.lock() {
                     let _ = store.upsert(session.clone());
                 }
+                spawn_ftep_sync(&app, &services, &session);
             }
             if !observation.running {
                 let ended = observation.observed_at_unix_ms;
@@ -1054,12 +1322,27 @@ fn monitor_session(
                 }
                 .to_owned();
                 if let Ok(_guard) = services.session_write.lock() {
-                    let _ = store.upsert(session);
+                    let _ = store.upsert(session.clone());
                 }
+                spawn_ftep_sync(&app, &services, &session);
                 services.release_game_process(&managed_session_id);
                 return;
             }
         }
+    });
+}
+
+fn spawn_ftep_sync(app: &tauri::AppHandle, services: &LocalServices, session: &RuntimeSession) {
+    let Ok(base_url) = services.managed_local_ftep_url() else {
+        return;
+    };
+    let Ok(data_dir) = storage::app_data_dir(app) else {
+        return;
+    };
+    let session = session.clone();
+    std::thread::spawn(move || {
+        let _ = ftep_client::sync_session(&base_url, &data_dir, &session);
+        let _ = ftep_client::sync_pending_achievements(&base_url, &data_dir);
     });
 }
 

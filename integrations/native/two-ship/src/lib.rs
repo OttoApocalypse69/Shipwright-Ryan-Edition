@@ -379,7 +379,7 @@ mod tests {
     fn accepts_only_standard_n64_rom_extensions() {
         let root = std::env::temp_dir().join(format!("sre-two-ship-test-{}", std::process::id()));
         std::fs::write(&root, b"fixture").unwrap();
-        assert!(TwoShipAdapter::is_n64_rom(&root.with_extension("z64")) == false);
+        assert!(!TwoShipAdapter::is_n64_rom(&root.with_extension("z64")));
         let rom = root.with_extension("z64");
         std::fs::rename(&root, &rom).unwrap();
         assert!(TwoShipAdapter::is_n64_rom(&rom));

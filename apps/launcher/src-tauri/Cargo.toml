@@ -42,6 +42,7 @@ tauri-plugin-opener = "2.5.4"
 tempfile.workspace = true
 url.workspace = true
 uuid.workspace = true
+reqwest.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.61.3", features = [

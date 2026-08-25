@@ -33,9 +33,24 @@ pub const ACHIEVEMENTS: &[AchievementDefinition] = &[
         description: "Your computer is now recognized by the Interpersonal Treaty Authority.",
     },
     AchievementDefinition {
+        id: "legally-supplied-bits",
+        title: "Legally Supplied Bits",
+        description: "FTEP has detected a completely user-provided collection of data.",
+    },
+    AchievementDefinition {
         id: "ahh-zelda",
         title: "Ahh, Zelda",
         description: "Hope you had fun playing. Now onto Satisfactory.",
+    },
+    AchievementDefinition {
+        id: "the-invoice-has-come-due",
+        title: "The Invoice Has Come Due",
+        description: "Article II would like a word.",
+    },
+    AchievementDefinition {
+        id: "ficsit-employee-onboarding",
+        title: "FICSIT Employee Onboarding",
+        description: "Welcome to the factory. Your free time has been processed.",
     },
     AchievementDefinition {
         id: "that-is-not-zelda",
@@ -46,6 +61,11 @@ pub const ACHIEVEMENTS: &[AchievementDefinition] = &[
         id: "enterprise-gaming",
         title: "Enterprise Gaming",
         description: "A distributed system was deployed so two people could play video games.",
+    },
+    AchievementDefinition {
+        id: "postgresql-was-necessary",
+        title: "PostgreSQL Was Necessary",
+        description: "It absolutely was not.",
     },
     AchievementDefinition {
         id: "article-ii-enjoyer",
@@ -61,6 +81,11 @@ pub const ACHIEVEMENTS: &[AchievementDefinition] = &[
         id: "fluid-logistics",
         title: "Fluid Logistics",
         description: "Biological machinery also requires input buffers.",
+    },
+    AchievementDefinition {
+        id: "pipeline-operational",
+        title: "Pipeline Operational",
+        description: "Water successfully delivered to operator.",
     },
     AchievementDefinition {
         id: "ryan-moment",
@@ -86,6 +111,25 @@ pub enum AchievementEvent<'a> {
         at_unix_ms: u64,
     },
     DeviceRegistered {
+        at_unix_ms: u64,
+    },
+    GameDataValidated {
+        at_unix_ms: u64,
+    },
+    ArticleIIActivated {
+        at_unix_ms: u64,
+    },
+    SatisfactorySessionQualified {
+        at_unix_ms: u64,
+    },
+    HydrationAcknowledged {
+        acknowledgements: u32,
+        at_unix_ms: u64,
+    },
+    BackendMigrationApplied {
+        at_unix_ms: u64,
+    },
+    ControlPlaneHealthy {
         at_unix_ms: u64,
     },
     RelationsRestored {
@@ -243,6 +287,34 @@ fn candidates(event: AchievementEvent<'_>) -> Vec<(&'static str, u64)> {
         AchievementEvent::DeviceRegistered { at_unix_ms } => {
             vec![("registered-gaming-apparatus", at_unix_ms)]
         }
+        AchievementEvent::GameDataValidated { at_unix_ms } => {
+            vec![("legally-supplied-bits", at_unix_ms)]
+        }
+        AchievementEvent::ArticleIIActivated { at_unix_ms } => {
+            vec![("the-invoice-has-come-due", at_unix_ms)]
+        }
+        AchievementEvent::SatisfactorySessionQualified { at_unix_ms } => {
+            vec![
+                ("ficsit-employee-onboarding", at_unix_ms),
+                ("article-ii-enjoyer", at_unix_ms),
+            ]
+        }
+        AchievementEvent::HydrationAcknowledged {
+            acknowledgements,
+            at_unix_ms,
+        } => {
+            let mut achievements = vec![("fluid-logistics", at_unix_ms)];
+            if acknowledgements >= 5 {
+                achievements.push(("pipeline-operational", at_unix_ms));
+            }
+            achievements
+        }
+        AchievementEvent::BackendMigrationApplied { at_unix_ms } => {
+            vec![("postgresql-was-necessary", at_unix_ms)]
+        }
+        AchievementEvent::ControlPlaneHealthy { at_unix_ms } => {
+            vec![("enterprise-gaming", at_unix_ms)]
+        }
         AchievementEvent::RelationsRestored { at_unix_ms } => {
             vec![("diplomatic-relations-restored", at_unix_ms)]
         }
@@ -358,5 +430,45 @@ mod tests {
                 .achievement_id,
             "ryan-moment"
         );
+    }
+
+    #[test]
+    fn treaty_data_and_satisfactory_events_have_explicit_triggers() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut engine = AchievementEngine::open(
+            &temp.path().join("achievements.sqlite3"),
+            OverlayQueue::default(),
+        )
+        .unwrap();
+        let data = engine
+            .evaluate(
+                "account",
+                AchievementEvent::GameDataValidated { at_unix_ms: 1 },
+            )
+            .unwrap();
+        assert_eq!(data[0].achievement_id, "legally-supplied-bits");
+        let qualifying = engine
+            .evaluate(
+                "account",
+                AchievementEvent::SatisfactorySessionQualified { at_unix_ms: 2 },
+            )
+            .unwrap();
+        assert_eq!(
+            qualifying
+                .iter()
+                .map(|unlock| unlock.achievement_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["ficsit-employee-onboarding", "article-ii-enjoyer"]
+        );
+        let hydration = engine
+            .evaluate(
+                "account",
+                AchievementEvent::HydrationAcknowledged {
+                    acknowledgements: 5,
+                    at_unix_ms: 3,
+                },
+            )
+            .unwrap();
+        assert_eq!(hydration[1].achievement_id, "pipeline-operational");
     }
 }

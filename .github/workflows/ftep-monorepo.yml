@@ -92,7 +92,10 @@ jobs:
       - name: Apply migrations from an empty database
         env:
           PGPASSWORD: postgres
-        run: psql -h 127.0.0.1 -U postgres -d ftep_test -v ON_ERROR_STOP=1 -f database/migrations/0001_ftep_core.sql
+        run: |
+          for migration in database/migrations/*.sql; do
+            psql -h 127.0.0.1 -U postgres -d ftep_test -v ON_ERROR_STOP=1 -f "$migration"
+          done
 
   security:
     name: Dependency and static security checks
